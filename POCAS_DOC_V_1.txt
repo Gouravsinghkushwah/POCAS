@@ -1,0 +1,301 @@
+Post Office Agency Collection Management System – Project Documentation
+Post Office Agency Collection Management System (PACMS)
+1. Introduction
+
+This document describes the functional and technical design of the Post Office Agency Collection Management System (PACMS). The system is intended to digitize and manage customer savings accounts, daily/monthly collections, and passbook-like tracking for a post office agency.
+
+The application will be used by Admin (Agency Owner), Collection Persons, and Customers, with clearly separated responsibilities and access levels.
+
+The document is designed to be future-proof, allowing easy addition of new features such as online payments, QR scanning, and extended reports.
+
+2. Problem Statement
+
+Currently, customer savings, daily collections, and passbook entries are managed manually, which leads to:
+
+Human errors in calculation
+
+Difficulty in tracking daily/monthly collections
+
+No real-time visibility for customers
+
+No centralized system for reporting and auditing
+
+PACMS aims to solve these problems through a secure, scalable digital system.
+
+3. Objectives
+
+Digitally manage customer post office savings accounts
+
+Track daily and monthly collections accurately
+
+Provide passbook-style visibility to customers
+
+Enable role-based access (Admin, Collector, Customer)
+
+Support long-term savings plans (3-year / 5-year)
+
+Allow future expansion (online payments, QR scan, reports)
+
+4. User Roles & Access Control
+4.1 Admin (Agency Owner)
+
+Responsibilities:
+
+Register and manage customers
+
+Open and manage post office accounts
+
+Assign collectors
+
+Define monthly installment (Kist)
+
+View and edit all collections
+
+Manage account lifecycle (Open / Running / Closed)
+
+Generate reports
+
+Access Level: Full access
+
+4.2 Collection Person (Field Collector)
+
+Responsibilities:
+
+Collect money on a daily basis from customers
+
+Update daily collection entries
+
+View assigned customers only
+
+View monthly total collection summary
+
+Restrictions:
+
+Cannot edit customer master details
+
+Cannot access other collectors' data
+
+4.3 Customer
+
+Responsibilities:
+
+View own account details
+
+View passbook entries
+
+Track paid installments
+
+View remaining duration
+
+Access Level: Read-only (own data only)
+
+Authentication will be based on Account Number + Mobile Number / OTP.
+
+5. Core Modules
+5.1 Customer Management Module
+
+Stores and manages customer master data.
+
+Customer Details:
+
+Customer Name
+
+Account Number (Unique)
+
+Mobile Number
+
+Address (Optional)
+
+Account Type (3 Years / 5 Years)
+
+Monthly Installment Amount
+
+Account Opening Date
+
+Account Closing Date
+
+Account Status (Active / Completed / Closed)
+
+5.2 Account Management Module
+
+Handles post office savings account lifecycle.
+
+Features:
+
+Automatic calculation of account closing date
+
+Remaining months calculation
+
+Total expected deposit calculation
+
+Completion status tracking
+
+5.3 Collection Management Module (Daily Collection)
+
+Used exclusively by Collection Persons.
+
+Key Features:
+
+Calendar-based daily entry system
+
+Date-wise money entry
+
+Support for partial payments
+
+Monthly auto-sum calculation
+
+Flow:
+
+Collector selects customer
+
+Selects date from calendar
+
+Enters collected amount
+
+System stores date-wise entry
+
+At month-end, system calculates total
+
+5.4 Monthly Posting Module
+
+Maps daily collections to monthly post office deposits.
+
+Logic:
+
+Sum of daily collections = Monthly contribution
+
+Monthly contribution added to customer account
+
+Passbook updated automatically
+
+5.5 Passbook Module (Customer View)
+
+Digital version of a physical passbook.
+
+Displayed Information:
+
+Month & Year
+
+Monthly installment amount
+
+Paid amount
+
+Pending amount (if any)
+
+Total balance till date
+
+Customers can only view, not edit.
+
+5.6 Reports & Dashboard Module
+
+Admin Reports:
+
+Daily collection summary
+
+Monthly collection report
+
+Customer-wise account status
+
+Collector-wise performance
+
+Collector View:
+
+Daily total collection
+
+Monthly total collection
+
+6. Future Enhancements (Planned)
+6.1 Online Payment Integration
+
+Customers can pay directly via UPI / Net Banking
+
+Payments automatically mapped to their account
+
+Reduced dependency on manual collection
+
+6.2 QR Code / Scanner-Based Payment
+
+Each customer profile will have a unique QR code
+
+Collector or customer can scan and pay
+
+Payment linked automatically to customer account
+
+6.3 Notification System
+
+Monthly payment reminders
+
+Account completion notifications
+
+Payment confirmation alerts
+
+6.4 Audit & Compliance
+
+Complete transaction history
+
+Read-only audit logs
+
+Export data for regulatory compliance
+
+7. Technology Stack
+Backend
+
+Java 17+
+
+Spring Boot
+
+Spring Security (JWT-based authentication)
+
+Spring Data JPA
+
+MySQL / PostgreSQL
+
+Frontend (Web)
+
+React.js
+
+REST API integration
+
+Role-based UI
+
+Mobile Application
+
+React Native
+
+Android & iOS support
+
+Others
+
+RESTful APIs
+
+Swagger for API documentation
+
+Cloud-ready deployment
+
+8. Security Considerations
+
+Role-based authorization
+
+Secure login with OTP / JWT
+
+Data encryption for sensitive fields
+
+Activity logging
+
+9. Scalability & Maintainability
+
+Modular architecture
+
+Microservice-ready design (future)
+
+Easily extendable modules
+
+Clean separation of concerns
+
+10. Conclusion
+
+PACMS is designed to modernize post office agency operations by providing a secure, transparent, and scalable digital solution. The system ensures accurate tracking of collections, improves customer trust, and prepares the agency for future digital payment adoption.
+
+Document Version: 1.0
+Prepared For: Post Office Agency Application
+Prepared By: Project Team
