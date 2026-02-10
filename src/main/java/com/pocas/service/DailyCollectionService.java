@@ -8,15 +8,14 @@ import com.pocas.exception.ApiException;
 import com.pocas.repo.AccountRepository;
 import com.pocas.repo.DailyCollectionRepository;
 import com.pocas.request.DailyCollectionRequest;
-import com.pocas.response.DailyCollectionFullResponse;
-import com.pocas.response.DailyCollectionResponse;
-import com.pocas.response.MonthlyAccountSummaryResponse;
-import com.pocas.response.MonthlyCollectionSummaryResponse;
+import com.pocas.response.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -255,5 +254,54 @@ public class DailyCollectionService {
             throw new ApiException("Failed to fetch collections for customer ID " + customerId);
         }
     }
+
+
+    public List<DailyPaymentStatusResponse> getPaymentStatusByAccountId(Long accountId) {
+        try {
+            // Fetch account
+            Account account = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException("Account with ID " + accountId + " not found"));
+
+            LocalDate startDate = account.getStartDate();
+            if (startDate == null) {
+                throw new ApiException("Start date not set for account ID " + accountId);
+            }
+
+            LocalDate today = LocalDate.now();
+
+            //  Fetch all daily collections for this account
+            List<DailyCollection> collections = dailyCollectionRepository.findByAccount(account);
+
+            // Map collection date -> total collected amount per day
+            Map<LocalDate, BigDecimal> dateToAmountMap = collections.stream()
+                    .collect(Collectors.toMap(
+                            DailyCollection::getCollectionDate,
+                            DailyCollection::getCollectedAmount,
+                            BigDecimal::add // sum amounts if multiple collections on same day
+                    ));
+
+            // Generate list of DailyPaymentStatusResponse for all dates from start to today
+            List<DailyPaymentStatusResponse> statusList = startDate.datesUntil(today.plusDays(1))
+                    .map(date -> {
+                        BigDecimal amount = dateToAmountMap.getOrDefault(date, BigDecimal.ZERO);
+                        return DailyPaymentStatusResponse.builder()
+                                .date(date)
+                                .paidAmount(amount)
+                                .isPaid(amount.compareTo(BigDecimal.ZERO) > 0)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            return statusList;
+
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException("Failed to fetch daily payment status for account ID " + accountId + ": " + e.getMessage());
+        }
+    }
+
+
+
 
 }

@@ -117,4 +117,21 @@ public class DailyCollectionController {
         return ResponseEntity.ok(apiResponse);
     }
 
+    @GetMapping("/account/{accountId}/payment-status")
+    public ResponseEntity<ApiResponseDto<List<DailyPaymentStatusResponse>>> getPaymentStatus(
+            @PathVariable Long accountId) {
+
+        List<DailyPaymentStatusResponse> statusList = dailyCollectionService.getPaymentStatusByAccountId(accountId);
+
+        ApiResponseDto<List<DailyPaymentStatusResponse>> apiResponse =
+                ApiResponseDto.<List<DailyPaymentStatusResponse>>builder()
+                        .message("Daily payment status fetched successfully")
+                        .data(statusList)
+                        .status(200)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
 }
