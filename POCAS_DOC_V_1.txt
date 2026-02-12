@@ -1,5 +1,5 @@
 Post Office Agency Collection Management System – Project Documentation
-Post Office Agency Collection Management System (PACMS)
+Post Office customer account service (POCAS)
 1. Introduction
 
 This document describes the functional and technical design of the Post Office Agency Collection Management System (PACMS). The system is intended to digitize and manage customer savings accounts, daily/monthly collections, and passbook-like tracking for a post office agency.

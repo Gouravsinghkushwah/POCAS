@@ -1,98 +1,24 @@
 package com.pocas.service;
 
-import com.pocas.entity.Customer;
-import com.pocas.entity.CustomerStatus;
-import com.pocas.repo.CustomerRepository;
 import com.pocas.request.CustomerRequest;
 import com.pocas.response.CustomerResponse;
-import com.pocas.exception.ApiException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
-@Service
-@RequiredArgsConstructor
-public class CustomerService {
-
-    private final CustomerRepository customerRepository;
-
+public interface CustomerService {
+    
     /**
      * Create a new Customer
      */
-    public CustomerResponse createCustomer(CustomerRequest request) {
-        try {
-            // Check for duplicate mobile number
-            customerRepository.findByMobileNumber(request.getMobileNumber())
-                    .ifPresent(c -> {
-                        throw new ApiException(
-                                "Customer with mobile number " + request.getMobileNumber() + " already exists");
-                    });
-
-            // Map DTO → Entity
-            Customer customer = Customer.builder()
-                    .name(request.getName())
-                    .mobileNumber(request.getMobileNumber())
-                    .address(request.getAddress())
-                    .accountType(request.getAccountType())
-                    .status(CustomerStatus.ACTIVE)
-                    .build();
-
-            Customer saved = customerRepository.save(customer);
-
-            // Map Entity → Response DTO
-            return mapToResponse(saved);
-
-        } catch (ApiException e) {
-            throw e; // propagate for global handler
-        } catch (Exception e) {
-            throw new ApiException("Failed to create customer. Please try again later.");
-        }
-    }
-
+    CustomerResponse createCustomer(CustomerRequest request);
+    
     /**
      * Get all customers
      */
-    public List<CustomerResponse> getAllCustomers() {
-        try {
-            return customerRepository.findAll().stream()
-                    .map(this::mapToResponse)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new ApiException("Failed to fetch customers. Please try again later.");
-        }
-    }
-
+    List<CustomerResponse> getAllCustomers();
+    
     /**
      * Get customer by ID
      */
-    public CustomerResponse getCustomerById(Long id) {
-        try {
-            Customer customer = customerRepository.findById(id)
-                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
-            return mapToResponse(customer);
-        } catch (ApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ApiException("Failed to fetch customer. Please try again later.");
-        }
-    }
-
-    /**
-     * Helper method to map Customer Entity → Response DTO
-     */
-    private CustomerResponse mapToResponse(Customer customer) {
-        if (customer == null) return null;
-        return CustomerResponse.builder()
-                .id(customer.getId())
-                .name(customer.getName())
-                .mobileNumber(customer.getMobileNumber())
-                .address(customer.getAddress())
-                .accountType(customer.getAccountType())
-                .status(customer.getStatus())
-                .createdAt(customer.getCreatedAt())
-                .updatedAt(customer.getUpdatedAt())
-                .build();
-    }
+    CustomerResponse getCustomerById(Long id);
 }
