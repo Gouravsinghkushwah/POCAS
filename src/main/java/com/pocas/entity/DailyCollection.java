@@ -24,7 +24,7 @@ public class DailyCollection {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    private CollectionAccount collectionAccount;
 
     @Column(nullable = false)
     private LocalDate collectionDate;

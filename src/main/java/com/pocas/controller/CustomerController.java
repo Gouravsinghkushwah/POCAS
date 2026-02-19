@@ -1,5 +1,6 @@
 package com.pocas.controller;
 
+import com.pocas.entity.CustomerStatus;
 import com.pocas.request.CustomerRequest;
 import com.pocas.response.CustomerResponse;
 import com.pocas.service.CustomerService;
@@ -38,9 +39,30 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
+    // Update customer
     @PutMapping("/{id}")
     public ResponseEntity<CustomerResponse> updateCustomer(@PathVariable Long id, @Validated @RequestBody CustomerRequest request) {
         CustomerResponse response = customerService.updateCustomer(id, request);
         return ResponseEntity.ok(response);
+    }
+
+    // Update customer status
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<CustomerResponse> updateCustomerStatus(@PathVariable Long id, @RequestParam CustomerStatus status) {
+        CustomerResponse response = customerService.updateCustomerStatus(id, status);
+        return ResponseEntity.ok(response);
+    }
+
+    // Get all customers including CLOSED ones (admin view)
+    @GetMapping("/all")
+    public ResponseEntity<List<CustomerResponse>> getAllCustomersIncludingClosed() {
+        List<CustomerResponse> customers = customerService.getAllCustomersIncludingClosed();
+        return ResponseEntity.ok(customers);
+    }
+
+    @GetMapping("/closed-customers-collectionAccount")
+    public ResponseEntity<List<CustomerResponse>> getAllClosedCustomer(){
+        List<CustomerResponse> customers = customerService.getAllClosedCustomer();
+        return ResponseEntity.ok(customers);
     }
 }

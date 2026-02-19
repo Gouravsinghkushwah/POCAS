@@ -32,7 +32,7 @@ public class User {
     private Double monthlyInstallment; // Monthly Kist
 
     @Column(nullable = false)
-    private LocalDate startDate; // Account start date
+    private LocalDate startDate; // CollectionAccount start date
 
     @Column
     private LocalDate endDate; // System-generated based on accountType

@@ -31,7 +31,7 @@ public class DailyCollectionController {
         return ResponseEntity.ok(apiResponse);
     }
 
-    @GetMapping("/account/{accountId}")
+    @GetMapping("/collectionAccount/{accountId}")
     public ResponseEntity<ApiResponseDto<List<DailyCollectionResponse>>> getAllCollections(
             @PathVariable Long accountId) {
         List<DailyCollectionResponse> collections = dailyCollectionService.getAllCollections(accountId);
@@ -44,7 +44,7 @@ public class DailyCollectionController {
         return ResponseEntity.ok(apiResponse);
     }
 
-    @GetMapping("/account/{accountId}/month-summary")
+    @GetMapping("/collectionAccount/{accountId}/month-summary")
     public ResponseEntity<ApiResponseDto<MonthlyCollectionSummaryResponse>> getMonthlySummary(
             @PathVariable Long accountId,
             @RequestParam Integer month,
@@ -64,7 +64,7 @@ public class DailyCollectionController {
         return ResponseEntity.ok(apiResponse);
     }
 
-    @GetMapping("/account/{accountId}/month-summary-detailed")
+    @GetMapping("/collectionAccount/{accountId}/month-summary-detailed")
     public ResponseEntity<ApiResponseDto<MonthlyAccountSummaryResponse>> getRemainingAndCollected(
             @PathVariable Long accountId,
             @RequestParam Integer month,
@@ -117,7 +117,7 @@ public class DailyCollectionController {
         return ResponseEntity.ok(apiResponse);
     }
 
-    @GetMapping("/account/{accountId}/payment-status")
+    @GetMapping("/collectionAccount/{accountId}/payment-status")
     public ResponseEntity<ApiResponseDto<List<DailyPaymentStatusResponse>>> getPaymentStatus(
             @PathVariable Long accountId) {
 
