@@ -19,6 +19,10 @@ public class CustomerRequest {
     @Pattern(regexp = "\\d{10}", message = "Mobile number must be 10 digits")
     private String mobileNumber;
 
+    @NotBlank(message = "Email is required")
+    private String email;
+
+    @NotBlank(message = "Address is required")
     private String address;
 
     @NotNull(message = "Account type is required")

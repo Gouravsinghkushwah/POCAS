@@ -22,6 +22,9 @@ public class Customer {
     @Column(nullable = false, unique = true, length = 10)
     private String mobileNumber;
 
+    @Column(nullable = false, unique = true)
+    private String email;
+
     @Column
     private String address;
 

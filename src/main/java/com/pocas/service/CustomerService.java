@@ -21,4 +21,9 @@ public interface CustomerService {
      * Get customer by ID
      */
     CustomerResponse getCustomerById(Long id);
+
+    /**
+     * Update an customer
+     */
+    CustomerResponse updateCustomer(Long id, CustomerRequest request);
 }
