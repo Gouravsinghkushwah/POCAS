@@ -8,9 +8,12 @@ import com.pocas.response.CustomerResponse;
 import com.pocas.exception.ApiException;
 import com.pocas.service.CustomerService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,6 +21,7 @@ import java.util.stream.Collectors;
 public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final Logger logger = LoggerFactory.getLogger(CustomerServiceImpl.class);
 
     /**
      * Create a new Customer
@@ -25,17 +29,14 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public CustomerResponse createCustomer(CustomerRequest request) {
         try {
-            // Check for duplicate mobile number
-            customerRepository.findByMobileNumber(request.getMobileNumber())
-                    .ifPresent(c -> {
-                        throw new ApiException(
-                                "Customer with mobile number " + request.getMobileNumber() + " already exists");
-                    });
+            // Check for duplicate mobile number or email
+            checkCustomerExists(request.getMobileNumber(), request.getEmail());
 
             // Map DTO → Entity
             Customer customer = Customer.builder()
                     .name(request.getName())
                     .mobileNumber(request.getMobileNumber())
+                    .email(request.getEmail())
                     .address(request.getAddress())
                     .accountType(request.getAccountType())
                     .status(CustomerStatus.ACTIVE)
@@ -47,8 +48,10 @@ public class CustomerServiceImpl implements CustomerService {
             return mapToResponse(saved);
 
         } catch (ApiException e) {
+            logger.error("Business error while creating customer: {}", e.getMessage());
             throw e; // propagate for global handler
         } catch (Exception e) {
+            logger.error("System error while creating customer: {}", e.getMessage());
             throw new ApiException("Failed to create customer. Please try again later.");
         }
     }
@@ -82,6 +85,28 @@ public class CustomerServiceImpl implements CustomerService {
             throw new ApiException("Failed to fetch customer. Please try again later.");
         }
     }
+    
+    
+    @Override
+    public CustomerResponse updateCustomer(Long id, CustomerRequest request) {
+        try {
+            Customer customer = customerRepository.findById(id)
+                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+            
+            // Update customer fields
+            customer.setName(request.getName());
+            customer.setMobileNumber(request.getMobileNumber());
+            customer.setEmail(request.getEmail());
+            customer.setAddress(request.getAddress());
+            customer.setAccountType(request.getAccountType());
+            
+            Customer saved = customerRepository.save(customer);
+            return mapToResponse(saved);
+
+        } catch (Exception e) {
+            throw new ApiException("Failed to update customer. Please try again later.");
+        }
+    }
 
     /**
      * Helper method to map Customer Entity → Response DTO
@@ -92,11 +117,31 @@ public class CustomerServiceImpl implements CustomerService {
                 .id(customer.getId())
                 .name(customer.getName())
                 .mobileNumber(customer.getMobileNumber())
+                .email(customer.getEmail())
                 .address(customer.getAddress())
                 .accountType(customer.getAccountType())
                 .status(customer.getStatus())
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Check if customer exists with given mobile number or email
+     */
+    private void checkCustomerExists(String mobileNumber, String email) {
+        // Check for duplicate mobile number
+        customerRepository.findByMobileNumber(mobileNumber)
+                .ifPresent(c -> {
+                    throw new ApiException(
+                            "Customer with mobile number " + mobileNumber + " already exists");
+                });
+
+        // Check for duplicate email
+        customerRepository.findByEmail(email)
+                .ifPresent(c -> {
+                    throw new ApiException(
+                            "Customer with email " + email + " already exists");
+                });
     }
 }

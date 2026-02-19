@@ -55,4 +55,10 @@ public class AccountController {
                 .build();
         return ResponseEntity.ok(apiResponse);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateAccount(@PathVariable Long id, @Valid @RequestBody AccountRequest request) {
+        accountService.updateAccount(id, request);
+        return ResponseEntity.ok("Account updated successfully");
+    }
 }
