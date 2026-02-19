@@ -11,6 +11,8 @@ import com.pocas.request.AccountRequest;
 import com.pocas.response.AccountResponse;
 import com.pocas.service.AccountService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,6 +26,7 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
     private final CustomerRepository customerRepository;
+    private final Logger logger = LoggerFactory.getLogger(AccountServiceImpl.class);
 
     /**
      * Create a new Account
@@ -32,19 +35,13 @@ public class AccountServiceImpl implements AccountService {
     public AccountResponse createAccount(AccountRequest request) {
         try {
             // Fetch customer
-            Customer customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new ApiException("Customer not found with ID " + request.getCustomerId()));
+            Customer customer = getCustomerById(request.getCustomerId());
 
             // Check if customer already has active account
-            accountRepository.findByCustomer(customer).stream()
-                    .filter(acc -> acc.getStatus() == AccountStatus.ACTIVE)
-                    .findAny()
-                    .ifPresent(acc -> {
-                        throw new ApiException("Customer already has an active account");
-                    });
+            checkCustomerHasActiveAccount(customer);
 
             // Calculate total months
-            int totalMonths = request.getAccountType() == AccountType.THREE_YEARS ? 36 : 60;
+            int totalMonths = request.getAccountType() == getAccountById(request.getCustomerId()).getAccountType() ? 36 : 60;
 
             // Calculate end date
             LocalDate endDate = request.getStartDate().plusMonths(totalMonths);
@@ -111,6 +108,17 @@ public class AccountServiceImpl implements AccountService {
     }
 
     /**
+     * Update an account
+     */
+    @Override
+    public String  updateAccount(Long id, AccountRequest request) {
+        Account customerAccount = getCustomerAccountById(id);
+        customerAccount.setId(id);
+        accountRepository.save(customerAccount);
+        return "Account updated successfully";
+    }
+
+    /**
      * Helper method to map Entity → Response DTO
      */
     private AccountResponse mapToResponse(Account account) {
@@ -130,5 +138,24 @@ public class AccountServiceImpl implements AccountService {
                 .createdAt(account.getCreatedAt())
                 .updatedAt(account.getUpdatedAt())
                 .build();
+    }
+
+    public void checkCustomerHasActiveAccount(Customer customer) {
+        accountRepository.findByCustomer(customer).stream()
+                .filter(acc -> acc.getStatus() == AccountStatus.ACTIVE)
+                .findAny()
+                .ifPresent(acc -> {
+                    throw new ApiException("Customer already has an active account");
+                });
+    }
+
+    public Account getCustomerAccountById(Long id) {
+        return accountRepository.findById(id)
+                .orElseThrow(() -> new ApiException("Account not found with ID " + id));
+    }
+
+    public Customer getCustomerById(Long id) {
+        return customerRepository.findById(id)
+                .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
     }
 }

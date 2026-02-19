@@ -21,4 +21,9 @@ public interface AccountService {
      * Get account by ID
      */
     AccountResponse getAccountById(Long id);
+
+    /**
+     * Update an account
+     */
+    String updateAccount(Long id, AccountRequest request);
 }
