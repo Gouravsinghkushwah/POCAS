@@ -25,6 +25,6 @@ public class CustomerRequest {
     @NotBlank(message = "Address is required")
     private String address;
 
-    @NotNull(message = "Account type is required")
+    @NotNull(message = "CollectionAccount type is required")
     private AccountType accountType;
 }

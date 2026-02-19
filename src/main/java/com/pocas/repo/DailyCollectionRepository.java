@@ -1,6 +1,6 @@
 package com.pocas.repo;
 
-import com.pocas.entity.Account;
+import com.pocas.entity.CollectionAccount;
 import com.pocas.entity.DailyCollection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,13 +9,12 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface DailyCollectionRepository extends JpaRepository<DailyCollection, Long> {
 
-    List<DailyCollection> findByAccount(Account account);
+    List<DailyCollection> findByCollectionAccount(CollectionAccount collectionAccount);
 
-    List<DailyCollection> findByAccountAndMonthAndYear(Account account, Integer month, Integer year);
+    List<DailyCollection> findByCollectionAccountAndMonthAndYear(CollectionAccount collectionAccount, Integer month, Integer year);
 
     List<DailyCollection> findByCollectionDateBetween(LocalDate start, LocalDate end);
 

@@ -1,9 +1,7 @@
 package com.pocas.serviceimpl;
 
-import com.pocas.entity.Account;
-import com.pocas.entity.AccountStatus;
-import com.pocas.entity.Customer;
-import com.pocas.entity.DailyCollection;
+import com.pocas.entity.*;
+import com.pocas.entity.CollectionAccount;
 import com.pocas.exception.ApiException;
 import com.pocas.repo.AccountRepository;
 import com.pocas.repo.DailyCollectionRepository;
@@ -32,13 +30,19 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     @Override
     public DailyCollectionResponse addDailyCollection(DailyCollectionRequest request) {
         try {
-            // Fetch account
-            Account account = accountRepository.findById(request.getAccountId())
-                    .orElseThrow(() -> new ApiException("Account with ID " + request.getAccountId() + " does not exist"));
+            // Fetch collectionAccount
+            CollectionAccount collectionAccount = accountRepository.findById(request.getAccountId())
+                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + request.getAccountId() + " does not exist"));
 
-            // Check account status
-            if (account.getStatus() != AccountStatus.ACTIVE) {
-                throw new ApiException("Cannot collect for account with status " + account.getStatus());
+            // Check customer status
+            Customer customer = collectionAccount.getCustomer();
+            if (customer.getStatus() == CustomerStatus.CLOSED) {
+                throw new ApiException("Cannot collect for deactivated customer. Customer status: " + customer.getStatus());
+            }
+
+            // Check collectionAccount status
+            if (collectionAccount.getStatus() != AccountStatus.ACTIVE) {
+                throw new ApiException("Cannot collect for collectionAccount with status " + collectionAccount.getStatus());
             }
 
             // Validate amount
@@ -52,7 +56,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
 
             // Create DailyCollection
             DailyCollection dailyCollection = DailyCollection.builder()
-                    .account(account)
+                    .collectionAccount(collectionAccount)
                     .collectionDate(request.getCollectionDate())
                     .collectedAmount(request.getCollectedAmount())
                     .month(month)
@@ -61,8 +65,8 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
 
             DailyCollection saved = dailyCollectionRepository.save(dailyCollection);
 
-            // Update account remaining months based on total collected
-            updateAccountAfterCollection(account);
+            // Update collectionAccount remaining months based on total collected
+            updateAccountAfterCollection(collectionAccount);
 
             return mapToResponse(saved);
 
@@ -74,43 +78,49 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     }
 
     /**
-     * Update account remaining months and status after daily collection
+     * Update collectionAccount remaining months and status after daily collection
      */
-    private void updateAccountAfterCollection(Account account) {
+    private void updateAccountAfterCollection(CollectionAccount collectionAccount) {
         try {
-            List<DailyCollection> collections = dailyCollectionRepository.findByAccount(account);
+            List<DailyCollection> collections = dailyCollectionRepository.findByCollectionAccount(collectionAccount);
 
             BigDecimal totalPaid = collections.stream()
                     .map(DailyCollection::getCollectedAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             // Remaining months = totalMonths - totalPaid / monthlyKist
-            int monthsPaid = totalPaid.divide(account.getMonthlyKist(), BigDecimal.ROUND_DOWN).intValue();
-            int remainingMonths = account.getTotalMonths() - monthsPaid;
-            account.setRemainingMonths(Math.max(remainingMonths, 0));
+            int monthsPaid = totalPaid.divide(collectionAccount.getMonthlyKist(), BigDecimal.ROUND_DOWN).intValue();
+            int remainingMonths = collectionAccount.getTotalMonths() - monthsPaid;
+            collectionAccount.setRemainingMonths(Math.max(remainingMonths, 0));
 
             // If fully paid, mark as COMPLETED
-            if (totalPaid.compareTo(account.getTotalExpectedDeposit()) >= 0) {
-                account.setStatus(AccountStatus.COMPLETED);
-                account.setRemainingMonths(0);
+            if (totalPaid.compareTo(collectionAccount.getTotalExpectedDeposit()) >= 0) {
+                collectionAccount.setStatus(AccountStatus.COMPLETED);
+                collectionAccount.setRemainingMonths(0);
             }
 
-            accountRepository.save(account);
+            accountRepository.save(collectionAccount);
         } catch (Exception e) {
-            throw new ApiException("Failed to update account after collection");
+            throw new ApiException("Failed to update collectionAccount after collection");
         }
     }
 
     /**
-     * Get all collections for account
+     * Get all collections for collectionAccount
      */
     @Override
     public List<DailyCollectionResponse> getAllCollections(Long accountId) {
         try {
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("Account with ID " + accountId + " does not exist"));
+            CollectionAccount collectionAccount = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
 
-            return dailyCollectionRepository.findByAccount(account).stream()
+            // Check customer status
+            Customer customer = collectionAccount.getCustomer();
+            if (customer.getStatus() == CustomerStatus.CLOSED) {
+                throw new ApiException("Cannot view collections for deactivated customer. Customer status: " + customer.getStatus());
+            }
+
+            return dailyCollectionRepository.findByCollectionAccount(collectionAccount).stream()
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (ApiException e) {
@@ -126,17 +136,17 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     @Override
     public MonthlyCollectionSummaryResponse getMonthlySummary(Long accountId, Integer month, Integer year) {
         try {
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("Account with ID " + accountId + " does not exist"));
+            CollectionAccount collectionAccount = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
 
-            List<DailyCollection> monthlyCollections = dailyCollectionRepository.findByAccountAndMonthAndYear(account, month, year);
+            List<DailyCollection> monthlyCollections = dailyCollectionRepository.findByCollectionAccountAndMonthAndYear(collectionAccount, month, year);
 
             BigDecimal totalCollected = monthlyCollections.stream()
                     .map(DailyCollection::getCollectedAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             return MonthlyCollectionSummaryResponse.builder()
-                    .accountId(account.getId())
+                    .accountId(collectionAccount.getId())
                     .month(month)
                     .year(year)
                     .totalCollected(totalCollected)
@@ -155,13 +165,13 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     @Override
     public MonthlyAccountSummaryResponse getRemainingAndCollected(Long accountId, Integer month, Integer year) {
         try {
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("Account with ID " + accountId + " does not exist"));
+            CollectionAccount collectionAccount = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
 
-            Customer customer = account.getCustomer();
+            Customer customer = collectionAccount.getCustomer();
 
             // All daily collections till the end of given month/year
-            List<DailyCollection> allCollections = dailyCollectionRepository.findByAccount(account);
+            List<DailyCollection> allCollections = dailyCollectionRepository.findByCollectionAccount(collectionAccount);
 
 //            BigDecimal totalCollectedTillMonth = allCollections.stream()
 //                    .filter(dc -> (dc.getYear() < year) || (dc.getYear() == year && dc.getMonth() <= month))
@@ -170,22 +180,22 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
 
             BigDecimal totalCollectedTillMonth = dailyCollectionRepository.sumMonthlyCollection(accountId, month, year);
 
-            BigDecimal remainingMonthsAmount = account.getMonthlyKist().subtract(totalCollectedTillMonth);
+            BigDecimal remainingMonthsAmount = collectionAccount.getMonthlyKist().subtract(totalCollectedTillMonth);
 
             // Remaining amount = TotalExpectedDeposit - collectedTillMonth
-            BigDecimal remainingAmount = account.getTotalExpectedDeposit().subtract(totalCollectedTillMonth);
+            BigDecimal remainingAmount = collectionAccount.getTotalExpectedDeposit().subtract(totalCollectedTillMonth);
 
             return MonthlyAccountSummaryResponse.builder()
-                    .accountId(account.getId())
+                    .accountId(collectionAccount.getId())
                     .customerId(customer.getId())
                     .customerName(customer.getName())
                     .month(month)
                     .year(year)
-                    .monthlyKist(account.getMonthlyKist())
+                    .monthlyKist(collectionAccount.getMonthlyKist())
                     .collectedThisMonth(totalCollectedTillMonth)
                     .remainingMonthsAmount(remainingMonthsAmount)
                     .remainingAmount(remainingAmount.max(BigDecimal.ZERO))
-                    .remainingMonths(account.getRemainingMonths())
+                    .remainingMonths(collectionAccount.getRemainingMonths())
                     .build();
 
         } catch (ApiException e) {
@@ -204,9 +214,9 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
             return dailyCollectionRepository.findAll().stream()
                     .map(collection -> DailyCollectionFullResponse.builder()
                             .collectionId(collection.getId())
-                            .accountId(collection.getAccount().getId())
-                            .customerId(collection.getAccount().getCustomer().getId())
-                            .customerName(collection.getAccount().getCustomer().getName())
+                            .accountId(collection.getCollectionAccount().getId())
+                            .customerId(collection.getCollectionAccount().getCustomer().getId())
+                            .customerName(collection.getCollectionAccount().getCustomer().getName())
                             .collectionDate(collection.getCollectionDate())
                             .collectedAmount(collection.getCollectedAmount())
                             .month(collection.getMonth())
@@ -224,21 +234,27 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     @Override
     public List<DailyCollectionFullResponse> getCollectionsByCustomerId(Long customerId) {
         try {
-            // Fetch all accounts of this customer
-            List<Account> accounts = accountRepository.findByCustomerId(customerId);
+            // Fetch all collectionAccounts of this customer
+            List<CollectionAccount> collectionAccounts = accountRepository.findByCustomerId(customerId);
 
-            if (accounts.isEmpty()) {
-                throw new ApiException("No accounts found for customer ID " + customerId);
+            if (collectionAccounts.isEmpty()) {
+                throw new ApiException("No collectionAccounts found for customer ID " + customerId);
             }
 
-            // Fetch all collections for all accounts of the customer
-            return accounts.stream()
-                    .flatMap(account -> dailyCollectionRepository.findByAccount(account).stream())
+            // Check customer status
+            Customer customer = collectionAccounts.getFirst().getCustomer();
+            if (customer.getStatus() == CustomerStatus.CLOSED) {
+                throw new ApiException("Cannot view collections for deactivated customer. Customer status: " + customer.getStatus());
+            }
+
+            // Fetch all collections for all collectionAccounts of the customer
+            return collectionAccounts.stream()
+                    .flatMap(account -> dailyCollectionRepository.findByCollectionAccount(account).stream())
                     .map(collection -> DailyCollectionFullResponse.builder()
                             .collectionId(collection.getId())
-                            .accountId(collection.getAccount().getId())
-                            .customerId(collection.getAccount().getCustomer().getId())
-                            .customerName(collection.getAccount().getCustomer().getName())
+                            .accountId(collection.getCollectionAccount().getId())
+                            .customerId(collection.getCollectionAccount().getCustomer().getId())
+                            .customerName(collection.getCollectionAccount().getCustomer().getName())
                             .collectionDate(collection.getCollectionDate())
                             .collectedAmount(collection.getCollectedAmount())
                             .month(collection.getMonth())
@@ -254,24 +270,30 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     }
 
     /**
-     * Get payment status by account ID
+     * Get payment status by collectionAccount ID
      */
     @Override
     public List<DailyPaymentStatusResponse> getPaymentStatusByAccountId(Long accountId) {
         try {
-            // Fetch account
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("Account with ID " + accountId + " not found"));
+            // Fetch collectionAccount
+            CollectionAccount collectionAccount = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " not found"));
 
-            LocalDate startDate = account.getStartDate();
+            // Check customer status
+            Customer customer = collectionAccount.getCustomer();
+            if (customer.getStatus() == CustomerStatus.CLOSED) {
+                throw new ApiException("Cannot view payment status for deactivated customer. Customer status: " + customer.getStatus());
+            }
+
+            LocalDate startDate = collectionAccount.getStartDate();
             if (startDate == null) {
-                throw new ApiException("Start date not set for account ID " + accountId);
+                throw new ApiException("Start date not set for collectionAccount ID " + accountId);
             }
 
             LocalDate today = LocalDate.now();
 
-            //  Fetch all daily collections for this account
-            List<DailyCollection> collections = dailyCollectionRepository.findByAccount(account);
+            //  Fetch all daily collections for this collectionAccount
+            List<DailyCollection> collections = dailyCollectionRepository.findByCollectionAccount(collectionAccount);
 
             // Map collection date -> total collected amount per day
             Map<LocalDate, BigDecimal> dateToAmountMap = collections.stream()
@@ -298,7 +320,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch daily payment status for account ID " + accountId + ": " + e.getMessage());
+            throw new ApiException("Failed to fetch daily payment status for collectionAccount ID " + accountId + ": " + e.getMessage());
         }
     }
 
@@ -308,7 +330,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     private DailyCollectionResponse mapToResponse(DailyCollection collection) {
         return DailyCollectionResponse.builder()
                 .id(collection.getId())
-                .accountId(collection.getAccount().getId())
+                .accountId(collection.getCollectionAccount().getId())
                 .collectionDate(collection.getCollectionDate())
                 .collectedAmount(collection.getCollectedAmount())
                 .month(collection.getMonth())

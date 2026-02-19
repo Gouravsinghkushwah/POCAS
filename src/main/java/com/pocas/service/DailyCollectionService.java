@@ -13,7 +13,7 @@ public interface DailyCollectionService {
     DailyCollectionResponse addDailyCollection(DailyCollectionRequest request);
     
     /**
-     * Get all collections for account
+     * Get all collections for collectionAccount
      */
     List<DailyCollectionResponse> getAllCollections(Long accountId);
     
@@ -38,7 +38,7 @@ public interface DailyCollectionService {
     List<DailyCollectionFullResponse> getCollectionsByCustomerId(Long customerId);
     
     /**
-     * Get payment status by account ID
+     * Get payment status by collectionAccount ID
      */
     List<DailyPaymentStatusResponse> getPaymentStatusByAccountId(Long accountId);
 }

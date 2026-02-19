@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AccountResponse {
+public class CollectionAccountResponse {
 
     private Long id;
     private String accountNumber;

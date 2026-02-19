@@ -63,9 +63,22 @@ public class CustomerServiceImpl implements CustomerService {
     public List<CustomerResponse> getAllCustomers() {
         try {
             return customerRepository.findAll().stream()
+                    .filter(customer -> customer.getStatus() != CustomerStatus.CLOSED)
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
+            throw new ApiException("Failed to fetch customers. Please try again later.");
+        }
+    }
+
+    @Override
+    public List<CustomerResponse> getAllClosedCustomer(){
+        try{
+            return customerRepository.findAll().stream()
+                    .filter(customer -> customer.getStatus()==CustomerStatus.CLOSED)
+                    .map(this::mapToResponse)
+                    .collect(Collectors.toList());
+        }catch(Exception e){
             throw new ApiException("Failed to fetch customers. Please try again later.");
         }
     }
@@ -92,7 +105,11 @@ public class CustomerServiceImpl implements CustomerService {
         try {
             Customer customer = customerRepository.findById(id)
                     .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
-            
+
+            // Check if customer is active
+            ensureCustomerActive(customer);
+
+            checkCustomerExistsForUpdate(id, request.getMobileNumber(), request.getEmail());
             // Update customer fields
             customer.setName(request.getName());
             customer.setMobileNumber(request.getMobileNumber());
@@ -103,10 +120,115 @@ public class CustomerServiceImpl implements CustomerService {
             Customer saved = customerRepository.save(customer);
             return mapToResponse(saved);
 
+        } catch (ApiException e) {
+            throw e;
         } catch (Exception e) {
             throw new ApiException("Failed to update customer. Please try again later.");
         }
     }
+    
+    @Override
+    public CustomerResponse updateCustomerStatus(Long id, CustomerStatus status) {
+        try {
+            Customer customer = customerRepository.findById(id)
+                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+            
+            // Check if customer already has the same status
+            if (customer.getStatus() == status) {
+                // Return current customer without error
+                return mapToResponse(customer);
+            }
+            
+            // Update customer status
+            customer.setStatus(status);
+            
+            Customer saved = customerRepository.save(customer);
+            return mapToResponse(saved);
+            
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException("Failed to update customer status. Please try again later.");
+        }
+    }
+    
+    @Override
+    public List<CustomerResponse> getAllCustomersIncludingClosed() {
+        try {
+            return customerRepository.findAll().stream()
+                    .map(this::mapToResponse)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new ApiException("Failed to fetch customers. Please try again later.");
+        }
+    }
+
+    /**
+     * Check if customer exists with given mobile number or email
+     */
+    private void checkCustomerExists(String mobileNumber, String email) {
+        checkMobileNumberExists(mobileNumber);
+        checkEmailExists(email);
+    }
+
+    /**
+     * Check if mobile number exists (excluding CLOSED customers)
+     */
+    private void checkMobileNumberExists(String mobileNumber) {
+        customerRepository.findByMobileNumber(mobileNumber)
+                .ifPresent(c -> {
+                    if (c.getStatus() != CustomerStatus.CLOSED) {
+                        throw new ApiException(
+                                "Customer with mobile number " + mobileNumber + " already exists");
+                    }
+                });
+    }
+
+    /**
+     * Check if email exists (excluding CLOSED customers)
+     */
+    private void checkEmailExists(String email) {
+        customerRepository.findByEmail(email)
+                .ifPresent(c -> {
+                    if (c.getStatus() != CustomerStatus.CLOSED) {
+                        throw new ApiException(
+                                "Customer with email " + email + " already exists");
+                    }
+                });
+    }
+
+    /**
+     * Check if customer is active (not CLOSED)
+     */
+    private void ensureCustomerActive(Customer customer) {
+        if (customer.getStatus() == CustomerStatus.CLOSED) {
+            throw new ApiException("Cannot perform operation. Customer is deactivated");
+        }
+    }
+
+    /**
+     * Check if customer exists with given mobile number or email (excluding current customer)
+     */
+    private void checkCustomerExistsForUpdate(Long currentCustomerId, String mobileNumber, String email) {
+        // Check for duplicate mobile number (excluding current customer)
+        customerRepository.findByMobileNumber(mobileNumber)
+                .ifPresent(c -> {
+                    if (!c.getId().equals(currentCustomerId)) {
+                        throw new ApiException(
+                                "Customer with mobile number " + mobileNumber + " already exists");
+                    }
+                });
+
+        // Check for duplicate email (excluding current customer)
+        customerRepository.findByEmail(email)
+                .ifPresent(c -> {
+                    if (!c.getId().equals(currentCustomerId)) {
+                        throw new ApiException(
+                                "Customer with email " + email + " already exists");
+                    }
+                });
+    }
+
 
     /**
      * Helper method to map Customer Entity → Response DTO
@@ -126,22 +248,4 @@ public class CustomerServiceImpl implements CustomerService {
                 .build();
     }
 
-    /**
-     * Check if customer exists with given mobile number or email
-     */
-    private void checkCustomerExists(String mobileNumber, String email) {
-        // Check for duplicate mobile number
-        customerRepository.findByMobileNumber(mobileNumber)
-                .ifPresent(c -> {
-                    throw new ApiException(
-                            "Customer with mobile number " + mobileNumber + " already exists");
-                });
-
-        // Check for duplicate email
-        customerRepository.findByEmail(email)
-                .ifPresent(c -> {
-                    throw new ApiException(
-                            "Customer with email " + email + " already exists");
-                });
-    }
 }

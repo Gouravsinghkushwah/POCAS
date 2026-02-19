@@ -1,5 +1,6 @@
 package com.pocas.service;
 
+import com.pocas.entity.CustomerStatus;
 import com.pocas.request.CustomerRequest;
 import com.pocas.response.CustomerResponse;
 
@@ -26,4 +27,19 @@ public interface CustomerService {
      * Update an customer
      */
     CustomerResponse updateCustomer(Long id, CustomerRequest request);
+    
+    /**
+     * Update customer status (CLOSED or ACTIVE)
+     */
+    CustomerResponse updateCustomerStatus(Long id, CustomerStatus status);
+    
+    /**
+     * Get all customers including CLOSED ones (admin view)
+     */
+    List<CustomerResponse> getAllCustomersIncludingClosed();
+
+    /**
+     * Get all closed customers
+     */
+    public List<CustomerResponse> getAllClosedCustomer();
 }

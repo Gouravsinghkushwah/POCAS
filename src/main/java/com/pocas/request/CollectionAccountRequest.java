@@ -10,12 +10,12 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AccountRequest {
+public class CollectionAccountRequest {
 
     @NotNull(message = "Customer ID is required")
     private Long customerId;
 
-    @NotNull(message = "Account type is required")
+    @NotNull(message = "CollectionAccount type is required")
     private AccountType accountType;
 
     @NotNull(message = "Monthly Kist amount is required")

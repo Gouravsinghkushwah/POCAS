@@ -16,7 +16,7 @@ import java.time.LocalDate;
 @Builder
 public class DailyCollectionRequest {
 
-    @NotNull(message = "Account ID is required")
+    @NotNull(message = "CollectionAccount ID is required")
     private Long accountId;
 
     @NotNull(message = "Collection date is required")
