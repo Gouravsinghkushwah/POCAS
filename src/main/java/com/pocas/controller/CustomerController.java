@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -64,5 +67,14 @@ public class CustomerController {
     public ResponseEntity<List<CustomerResponse>> getAllClosedCustomer(){
         List<CustomerResponse> customers = customerService.getAllClosedCustomer();
         return ResponseEntity.ok(customers);
+    }
+
+    // Get total customers count
+    @GetMapping("/total-count")
+    public ResponseEntity<Map<String, Long>> getTotalCustomers() {
+        long totalCustomers = customerService.getTotalCustomers();
+        Map<String, Long> response = new HashMap<>();
+        response.put("totalCustomers", totalCustomers);
+        return ResponseEntity.ok(response);
     }
 }
