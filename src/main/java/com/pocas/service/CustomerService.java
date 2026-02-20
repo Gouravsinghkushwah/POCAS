@@ -42,4 +42,9 @@ public interface CustomerService {
      * Get all closed customers
      */
     public List<CustomerResponse> getAllClosedCustomer();
+
+    /**
+     * Get total customers count
+     */
+    long getTotalCustomers();
 }

@@ -1,5 +1,6 @@
 package com.pocas.serviceimpl;
 
+import com.pocas.constants.ApiMessages;
 import com.pocas.entity.Customer;
 import com.pocas.entity.CustomerStatus;
 import com.pocas.repo.CustomerRepository;
@@ -52,7 +53,7 @@ public class CustomerServiceImpl implements CustomerService {
             throw e; // propagate for global handler
         } catch (Exception e) {
             logger.error("System error while creating customer: {}", e.getMessage());
-            throw new ApiException("Failed to create customer. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_CREATE_CUSTOMER);
         }
     }
 
@@ -67,7 +68,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch customers. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_CUSTOMERS);
         }
     }
 
@@ -79,7 +80,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         }catch(Exception e){
-            throw new ApiException("Failed to fetch customers. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_CUSTOMERS);
         }
     }
 
@@ -90,12 +91,12 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerResponse getCustomerById(Long id) {
         try {
             Customer customer = customerRepository.findById(id)
-                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
             return mapToResponse(customer);
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch customer. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_CUSTOMERS);
         }
     }
     
@@ -104,7 +105,7 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerResponse updateCustomer(Long id, CustomerRequest request) {
         try {
             Customer customer = customerRepository.findById(id)
-                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
 
             // Check if customer is active
             ensureCustomerActive(customer);
@@ -123,7 +124,7 @@ public class CustomerServiceImpl implements CustomerService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to update customer. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_UPDATE_CUSTOMER);
         }
     }
     
@@ -131,7 +132,7 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerResponse updateCustomerStatus(Long id, CustomerStatus status) {
         try {
             Customer customer = customerRepository.findById(id)
-                    .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
             
             // Check if customer already has the same status
             if (customer.getStatus() == status) {
@@ -148,7 +149,7 @@ public class CustomerServiceImpl implements CustomerService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to update customer status. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_UPDATE_CUSTOMER_STATUS);
         }
     }
     
@@ -159,7 +160,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch customers. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_CUSTOMERS);
         }
     }
 
@@ -179,7 +180,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> {
                     if (c.getStatus() != CustomerStatus.CLOSED) {
                         throw new ApiException(
-                                "Customer with mobile number " + mobileNumber + " already exists");
+                                String.format(ApiMessages.CUSTOMER_MOBILE_EXISTS, mobileNumber));
                     }
                 });
     }
@@ -192,7 +193,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> {
                     if (c.getStatus() != CustomerStatus.CLOSED) {
                         throw new ApiException(
-                                "Customer with email " + email + " already exists");
+                                String.format(ApiMessages.CUSTOMER_EMAIL_EXISTS, email));
                     }
                 });
     }
@@ -202,7 +203,7 @@ public class CustomerServiceImpl implements CustomerService {
      */
     private void ensureCustomerActive(Customer customer) {
         if (customer.getStatus() == CustomerStatus.CLOSED) {
-            throw new ApiException("Cannot perform operation. Customer is deactivated");
+            throw new ApiException(ApiMessages.CUSTOMER_DEACTIVATED);
         }
     }
 
@@ -215,7 +216,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> {
                     if (!c.getId().equals(currentCustomerId)) {
                         throw new ApiException(
-                                "Customer with mobile number " + mobileNumber + " already exists");
+                                String.format(ApiMessages.CUSTOMER_MOBILE_EXISTS, mobileNumber));
                     }
                 });
 
@@ -224,11 +225,15 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> {
                     if (!c.getId().equals(currentCustomerId)) {
                         throw new ApiException(
-                                "Customer with email " + email + " already exists");
+                                String.format(ApiMessages.CUSTOMER_EMAIL_EXISTS, email));
                     }
                 });
     }
 
+    @Override
+    public long getTotalCustomers() {
+        return customerRepository.countByStatusNot(CustomerStatus.CLOSED);
+    }
 
     /**
      * Helper method to map Customer Entity → Response DTO

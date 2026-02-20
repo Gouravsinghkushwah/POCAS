@@ -1,5 +1,6 @@
 package com.pocas.serviceimpl;
 
+import com.pocas.constants.ApiMessages;
 import com.pocas.entity.*;
 import com.pocas.entity.CollectionAccount;
 import com.pocas.exception.ApiException;
@@ -9,6 +10,10 @@ import com.pocas.request.DailyCollectionRequest;
 import com.pocas.response.*;
 import com.pocas.service.DailyCollectionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -32,22 +37,22 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         try {
             // Fetch collectionAccount
             CollectionAccount collectionAccount = accountRepository.findById(request.getAccountId())
-                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + request.getAccountId() + " does not exist"));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_DOES_NOT_EXIST, request.getAccountId())));
 
             // Check customer status
             Customer customer = collectionAccount.getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot collect for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "collect", customer.getStatus()));
             }
 
             // Check collectionAccount status
             if (collectionAccount.getStatus() != AccountStatus.ACTIVE) {
-                throw new ApiException("Cannot collect for collectionAccount with status " + collectionAccount.getStatus());
+                throw new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_STATUS_INVALID, collectionAccount.getStatus()));
             }
 
             // Validate amount
             if (request.getCollectedAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new ApiException("Collected amount must be greater than 0");
+                throw new ApiException(ApiMessages.COLLECTION_AMOUNT_INVALID);
             }
 
             // Determine month/year from collectionDate
@@ -73,7 +78,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to add daily collection. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_ADD_DAILY_COLLECTION);
         }
     }
 
@@ -101,7 +106,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
 
             accountRepository.save(collectionAccount);
         } catch (Exception e) {
-            throw new ApiException("Failed to update collectionAccount after collection");
+            throw new ApiException(ApiMessages.FAILED_TO_UPDATE_COLLECTION_ACCOUNT);
         }
     }
 
@@ -112,12 +117,12 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     public List<DailyCollectionResponse> getAllCollections(Long accountId) {
         try {
             CollectionAccount collectionAccount = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_DOES_NOT_EXIST, accountId)));
 
             // Check customer status
             Customer customer = collectionAccount.getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot view collections for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "view collections", customer.getStatus()));
             }
 
             return dailyCollectionRepository.findByCollectionAccount(collectionAccount).stream()
@@ -126,7 +131,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch daily collections");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_DAILY_COLLECTIONS);
         }
     }
 
@@ -137,7 +142,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     public MonthlyCollectionSummaryResponse getMonthlySummary(Long accountId, Integer month, Integer year) {
         try {
             CollectionAccount collectionAccount = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_DOES_NOT_EXIST, accountId)));
 
             List<DailyCollection> monthlyCollections = dailyCollectionRepository.findByCollectionAccountAndMonthAndYear(collectionAccount, month, year);
 
@@ -155,7 +160,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch monthly summary");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_MONTHLY_SUMMARY);
         }
     }
 
@@ -166,7 +171,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
     public MonthlyAccountSummaryResponse getRemainingAndCollected(Long accountId, Integer month, Integer year) {
         try {
             CollectionAccount collectionAccount = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " does not exist"));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_DOES_NOT_EXIST, accountId)));
 
             Customer customer = collectionAccount.getCustomer();
 
@@ -201,7 +206,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch remaining and collected data");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_REMAINING_COLLECTED);
         }
     }
 
@@ -224,7 +229,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch all collection data");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_ALL_COLLECTIONS);
         }
     }
 
@@ -238,13 +243,13 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
             List<CollectionAccount> collectionAccounts = accountRepository.findByCustomerId(customerId);
 
             if (collectionAccounts.isEmpty()) {
-                throw new ApiException("No collectionAccounts found for customer ID " + customerId);
+                throw new ApiException(String.format(ApiMessages.NO_COLLECTION_ACCOUNTS_FOR_CUSTOMER, customerId));
             }
 
             // Check customer status
             Customer customer = collectionAccounts.getFirst().getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot view collections for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "view collections", customer.getStatus()));
             }
 
             // Fetch all collections for all collectionAccounts of the customer
@@ -265,7 +270,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch collections for customer ID " + customerId);
+            throw new ApiException(String.format(ApiMessages.FAILED_TO_FETCH_COLLECTIONS_FOR_CUSTOMER, customerId));
         }
     }
 
@@ -277,17 +282,17 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         try {
             // Fetch collectionAccount
             CollectionAccount collectionAccount = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new ApiException("CollectionAccount with ID " + accountId + " not found"));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_NOT_FOUND_ALT, accountId)));
 
             // Check customer status
             Customer customer = collectionAccount.getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot view payment status for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "view payment status", customer.getStatus()));
             }
 
             LocalDate startDate = collectionAccount.getStartDate();
             if (startDate == null) {
-                throw new ApiException("Start date not set for collectionAccount ID " + accountId);
+                throw new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_START_DATE_NOT_SET, accountId));
             }
 
             LocalDate today = LocalDate.now();
@@ -320,7 +325,75 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch daily payment status for collectionAccount ID " + accountId + ": " + e.getMessage());
+            throw new ApiException(String.format(ApiMessages.FAILED_TO_FETCH_PAYMENT_STATUS, accountId, e.getMessage()));
+        }
+    }
+
+    @Override
+    public MonthlyPaymentSummaryResponse getMonthlyPaymentSummary(Long accountId, Integer month, Integer year) {
+        try {
+            // Validate account exists and is active
+            CollectionAccount account = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_NOT_FOUND, accountId)));
+
+            if (account.getStatus() != AccountStatus.ACTIVE) {
+                throw new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_STATUS_INVALID, account.getStatus()));
+            }
+
+            // Get all payment statuses for the account
+            List<DailyPaymentStatusResponse> paymentStatuses = getPaymentStatusByAccountId(accountId);
+
+            // Filter for the requested month/year
+            LocalDate startDate = LocalDate.of(year, month, 1);
+            LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+            LocalDate today = LocalDate.now();
+
+            // Calculate days passed in current month
+            int daysPassed = Math.min(today.getMonthValue() == month && today.getYear() == year 
+                    ? today.getDayOfMonth() 
+                    : startDate.lengthOfMonth(), startDate.lengthOfMonth());
+
+            // Count paid and unpaid days
+            int paidDays = 0;
+            int unpaidDays = 0;
+            BigDecimal totalPaidAmount = BigDecimal.ZERO;
+            BigDecimal dailyAmount = account.getMonthlyKist(); // Use account's daily amount
+
+            for (DailyPaymentStatusResponse status : paymentStatuses) {
+                LocalDate statusDate = status.getDate();
+                
+                // Only count days in the requested month and up to today
+                if (!statusDate.isBefore(startDate) && !statusDate.isAfter(endDate) && 
+                    (statusDate.isBefore(today) || statusDate.isEqual(today))) {
+                    
+                    if (status.isPaid()) {
+                        paidDays++;
+                        totalPaidAmount = totalPaidAmount.add(status.getPaidAmount());
+                    } else {
+                        unpaidDays++;
+                    }
+                }
+            }
+
+            BigDecimal expectedAmount = BigDecimal.valueOf(daysPassed).multiply(dailyAmount);
+            BigDecimal remainingAmount = expectedAmount.subtract(totalPaidAmount);
+
+            return MonthlyPaymentSummaryResponse.builder()
+                    .accountId(accountId)
+                    .month(month)
+                    .year(year)
+                    .totalDays(daysPassed)
+                    .paidDays(paidDays)
+                    .unpaidDays(unpaidDays)
+                    .expectedAmount(expectedAmount)
+                    .totalPaidAmount(totalPaidAmount)
+                    .remainingAmount(remainingAmount)
+                    .build();
+
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException(String.format(ApiMessages.FAILED_TO_FETCH_PAYMENT_STATUS, accountId, e.getMessage()));
         }
     }
 
@@ -338,5 +411,59 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
                 .createdAt(collection.getCreatedAt())
                 .updatedAt(collection.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Get all collections with pagination and search
+     */
+    @Override
+    public Page<DailyCollectionFullResponse> getAllCollectionsPaginated(int page, int size, String search) {
+        try {
+            // Get all collections
+            List<DailyCollection> allCollections = dailyCollectionRepository.findAll();
+            
+            // Filter based on search term
+            List<DailyCollection> filteredCollections = allCollections.stream()
+                    .filter(collection -> {
+                        if (search == null || search.trim().isEmpty()) {
+                            return true;
+                        }
+                        
+                        String searchLower = search.toLowerCase();
+                        String customerName = collection.getCollectionAccount().getCustomer().getName().toLowerCase();
+                        String accountNumber = collection.getCollectionAccount().getAccountNumber().toLowerCase();
+                        String collectionDateStr = collection.getCollectionDate().toString().toLowerCase();
+                        
+                        return customerName.contains(searchLower) || 
+                               accountNumber.contains(searchLower) || 
+                               collectionDateStr.contains(searchLower);
+                    })
+                    .collect(Collectors.toList());
+            
+            // Convert to response DTOs
+            List<DailyCollectionFullResponse> responseList = filteredCollections.stream()
+                    .map(collection -> DailyCollectionFullResponse.builder()
+                            .collectionId(collection.getId())
+                            .accountId(collection.getCollectionAccount().getId())
+                            .customerId(collection.getCollectionAccount().getCustomer().getId())
+                            .customerName(collection.getCollectionAccount().getCustomer().getName())
+                            .collectionDate(collection.getCollectionDate())
+                            .collectedAmount(collection.getCollectedAmount())
+                            .month(collection.getMonth())
+                            .year(collection.getYear())
+                            .build())
+                    .collect(Collectors.toList());
+            
+            // Create pagination
+            Pageable pageable = PageRequest.of(page, size);
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), responseList.size());
+            List<DailyCollectionFullResponse> pageContent = responseList.subList(start, end);
+            
+            return new PageImpl<>(pageContent, pageable, responseList.size());
+            
+        } catch (Exception e) {
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_ALL_COLLECTIONS);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.pocas.serviceimpl;
 
+import com.pocas.constants.ApiMessages;
 import com.pocas.entity.AccountType;
 import com.pocas.entity.CollectionAccount;
 import com.pocas.entity.AccountStatus;
@@ -40,14 +41,14 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
 
             // Check if customer is active
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot create account for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "create account", customer.getStatus()));
             }
 
             // Check if customer already has active collectionAccount
             checkCustomerHasActiveAccount(customer);
 
             // Calculate total months
-            int totalMonths = request.getAccountType() == AccountType.FIVE_YEARS ? 36 : 60;
+            int totalMonths = request.getAccountType() == AccountType.FIVE_YEARS ? 60 : 36;
 
             // Calculate end date
             LocalDate endDate = request.getStartDate().plusMonths(totalMonths);
@@ -79,7 +80,7 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
         } catch (ApiException e) {
             throw e; // propagate for global handler
         } catch (Exception e) {
-            throw new ApiException("Failed to create collectionAccount. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_CREATE_COLLECTION_ACCOUNT);
         }
     }
 
@@ -94,7 +95,7 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch accounts. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_COLLECTION_ACCOUNTS);
         }
     }
 
@@ -105,19 +106,19 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
     public CollectionAccountResponse getAccountById(Long id) {
         try {
             CollectionAccount collectionAccount = accountRepository.findById(id)
-                    .orElseThrow(() -> new ApiException("CollectionAccount not found with ID " + id));
+                    .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_NOT_FOUND, id)));
             
             // Check if customer is active
             Customer customer = collectionAccount.getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
-                throw new ApiException("Cannot view account for deactivated customer. Customer status: " + customer.getStatus());
+                throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "view account", customer.getStatus()));
             }
             
             return mapToResponse(collectionAccount);
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
-            throw new ApiException("Failed to fetch collectionAccount. Please try again later.");
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_COLLECTION_ACCOUNT);
         }
     }
 
@@ -131,7 +132,7 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
         // Check if customer is active
         Customer customer = collectionAccount.getCustomer();
         if (customer.getStatus() == CustomerStatus.CLOSED) {
-            throw new ApiException("Cannot update account for deactivated customer. Customer status: " + customer.getStatus());
+            throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "update account", customer.getStatus()));
         }
         
         // Update fields
@@ -140,7 +141,7 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
         collectionAccount.setStartDate(request.getStartDate());
         
         // Recalculate end date and total months
-        int totalMonths = request.getAccountType() == AccountType.FIVE_YEARS ? 36 : 60;
+        int totalMonths = request.getAccountType() == AccountType.FIVE_YEARS ? 60 : 36;
         LocalDate endDate = request.getStartDate().plusMonths(totalMonths);
         BigDecimal totalDeposit = request.getMonthlyKist().multiply(BigDecimal.valueOf(totalMonths));
         
@@ -180,17 +181,17 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
                 .filter(acc -> acc.getStatus() == AccountStatus.ACTIVE)
                 .findAny()
                 .ifPresent(acc -> {
-                    throw new ApiException("Customer already has an active collectionAccount");
+                    throw new ApiException(ApiMessages.COLLECTION_ACCOUNT_ALREADY_EXISTS);
                 });
     }
 
     public CollectionAccount getCustomerAccountById(Long id) {
         return accountRepository.findById(id)
-                .orElseThrow(() -> new ApiException("CollectionAccount not found with ID " + id));
+                .orElseThrow(() -> new ApiException(String.format(ApiMessages.COLLECTION_ACCOUNT_NOT_FOUND, id)));
     }
 
     public Customer getCustomerById(Long id) {
         return customerRepository.findById(id)
-                .orElseThrow(() -> new ApiException("Customer not found with ID " + id));
+                .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
     }
 }

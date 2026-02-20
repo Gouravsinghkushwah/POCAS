@@ -5,6 +5,9 @@ import com.pocas.response.*;
 import com.pocas.service.DailyCollectionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -132,6 +135,18 @@ public class DailyCollectionController {
                         .build();
 
         return ResponseEntity.ok(apiResponse);
+    }
+
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<DailyCollectionFullResponse>> getAllCollectionsPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
+
+        Page<DailyCollectionFullResponse> collectionsPage = 
+                dailyCollectionService.getAllCollectionsPaginated(page, size, search);
+
+        return ResponseEntity.ok(collectionsPage);
     }
 
 }

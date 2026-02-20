@@ -2,6 +2,7 @@ package com.pocas.service;
 
 import com.pocas.request.DailyCollectionRequest;
 import com.pocas.response.*;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -41,4 +42,14 @@ public interface DailyCollectionService {
      * Get payment status by collectionAccount ID
      */
     List<DailyPaymentStatusResponse> getPaymentStatusByAccountId(Long accountId);
+    
+    /**
+     * Get monthly payment summary for an account
+     */
+    MonthlyPaymentSummaryResponse getMonthlyPaymentSummary(Long accountId, Integer month, Integer year);
+    
+    /**
+     * Get all collections with pagination and search
+     */
+    Page<DailyCollectionFullResponse> getAllCollectionsPaginated(int page, int size, String search);
 }
