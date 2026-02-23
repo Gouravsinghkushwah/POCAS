@@ -1,13 +1,19 @@
 package com.pocas.controller;
 
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-@RestController
+@Controller
 public class HomeController {
 
     @GetMapping("/test")
-    public String home() {
+    public String apiTest() {
         return "API Running";
+    }
+
+    // Catch-all to serve React app for unknown paths
+    @GetMapping(value = "/{path:[^\\.]*}")
+    public String redirect() {
+        return "index.html";
     }
 }
