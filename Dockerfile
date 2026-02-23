@@ -1,20 +1,12 @@
 # Multi-stage build for React + Spring Boot
 FROM node:18-alpine AS frontend-build
 
-# Create app directory and set permissions
-RUN mkdir /app && chown node:node /app
 WORKDIR /app/frontend
-USER node
-
-COPY --chown=node:node frontend/package*.json ./
+COPY frontend/package*.json ./
 RUN npm install
 
-COPY --chown=node:node frontend/ ./
-RUN chmod +x node_modules/.bin/react-scripts
+COPY frontend/ ./
 RUN npm run build
-
-# Switch back to root for Spring Boot stage
-USER root
 
 # Spring Boot stage
 FROM eclipse-temurin:17-jre-alpine
