@@ -12,8 +12,8 @@ public class HomeController {
     }
 
     // Catch-all to serve React app for unknown paths
-    @GetMapping(value = "/{path:[^\\.]*}")
-    public String redirect() {
-        return "index.html";
+    @GetMapping(value = { "/", "/home", "/about", "/dashboard/**" })
+    public String index() {
+        return "index.html";  // Serves React's index.html for SPA routing
     }
 }
