@@ -20,6 +20,12 @@ public class CustomerController {
 
     private final CustomerService customerService;
 
+
+    @GetMapping("/")
+    public String home() {
+        return "API Running";
+    }
+
     // Create customer
     @PostMapping
     public ResponseEntity<CustomerResponse> createCustomer(
