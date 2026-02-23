@@ -3,7 +3,7 @@ nixPkgs = ["nodejs-18_x", "jdk17"]
 
 [phases.build]
 cmds = [
-  "cd frontend && npm install && npm run build && cd ..",
+  "cd frontend && npm install --force && npm run build && cd ..",
   "./mvnw clean package -DskipTests"
 ]
 
