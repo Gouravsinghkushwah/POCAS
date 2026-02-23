@@ -12,7 +12,7 @@ public class HomeController {
     }
 
     // Catch-all to serve React app for unknown paths
-    @GetMapping(value = { "/", "/home", "/about", "/dashboard/**" })
+    @GetMapping(value = { "/", "/home", "/about", "/dashboard/**,'/N:/POCAS/POCAS/frontend/public' " })
     public String index() {
         return "index.html";  // Serves React's index.html for SPA routing
     }
