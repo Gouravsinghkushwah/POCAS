@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Spring Boot stage
-FROM openjdk:21-jdk-slim
+FROM openjdk:17-jdk-slim
 
 WORKDIR /app
 COPY pom.xml .
