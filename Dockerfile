@@ -1,12 +1,9 @@
 # Multi-stage build for React + Spring Boot
-FROM node:16-alpine AS frontend-build
+FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
-
-# Fix permissions for node_modules
-RUN chmod -R +x node_modules/.bin/
+RUN npm install --production=false
 
 COPY frontend/ ./
 RUN npm run build
