@@ -28,6 +28,10 @@ const Collections = () => {
     collectedAmount: '',
     collectionDate: new Date().toISOString().split('T')[0],
   });
+  const [accountSearchQuery, setAccountSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
+  const [selectedAccountDetails, setSelectedAccountDetails] = useState(null);
 
   useEffect(() => {
     fetchCollections();
@@ -45,6 +49,13 @@ const Collections = () => {
   useEffect(() => {
     localStorage.setItem('unpaidColor', unpaidColor);
   }, [unpaidColor]);
+
+  useEffect(() => {
+    // Refetch payment status when month changes
+    if (selectedAccount && showPaymentStatusModal) {
+      fetchPaymentStatus(selectedAccount.accountId);
+    }
+  }, [currentMonth]);
 
   const fetchCollections = async () => {
     try {
@@ -70,6 +81,40 @@ const Collections = () => {
     }
   };
 
+  const handleAccountSearch = async (query) => {
+    setAccountSearchQuery(query);
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setShowAccountDropdown(false);
+      return;
+    }
+
+    try {
+      const results = await accountAPI.search(query);
+      setSearchResults(Array.isArray(results) ? results : []);
+      setShowAccountDropdown(true);
+    } catch (error) {
+      console.error('Error searching accounts:', error);
+      setSearchResults([]);
+    }
+  };
+
+  const selectAccount = (account) => {
+    setSelectedAccountDetails(account);
+    setFormData({...formData, accountId: account.id});
+    setAccountSearchQuery(`${account.accountNumber} - ${account.customerName}`);
+    setShowAccountDropdown(false);
+    setSearchResults([]);
+  };
+
+  const clearAccountSelection = () => {
+    setSelectedAccountDetails(null);
+    setFormData({...formData, accountId: ''});
+    setAccountSearchQuery('');
+    setSearchResults([]);
+    setShowAccountDropdown(false);
+  };
+
   const fetchPaymentStatus = async (accountId) => {
     try {
       setPaymentStatusLoading(true);
@@ -87,24 +132,29 @@ const Collections = () => {
       console.log('Payment status data extracted:', paymentData); // Debug log
       setPaymentStatus(Array.isArray(paymentData) ? paymentData : []);
       
-      // Also fetch monthly summary to get daily amount
-      const currentDate = new Date();
-      const month = currentDate.getMonth() + 1;
-      const year = currentDate.getFullYear();
+      // Fetch monthly summary for the selected calendar month
+      const month = currentMonth.getMonth() + 1;
+      const year = currentMonth.getFullYear();
       
       try {
         const monthlySummary = await collectionAPI.getMonthlyPaymentSummary(accountId, month, year);
-        console.log('Monthly summary:', monthlySummary);
-        // Store daily amount for calculations
-        if (monthlySummary && monthlySummary.expectedAmount) {
-          // Calculate daily amount from expected amount and days passed
-          const dailyAmount = monthlySummary.expectedAmount / monthlySummary.totalDays;
+        console.log('Monthly summary for selected month:', monthlySummary);
+        // Store monthlyKist for calculations
+        if (monthlySummary && monthlySummary.monthlyKist) {
+          // Calculate daily amount from monthlyKist and days in month
+          const daysInMonth = new Date(year, month, 0).getDate();
+          const dailyAmount = monthlySummary.monthlyKist / daysInMonth;
           // Store it for use in calendar
           window.currentDailyAmount = dailyAmount;
+          window.monthlyKist = monthlySummary.monthlyKist;
+          console.log('Set monthlyKist:', monthlySummary.monthlyKist, 'Daily amount:', dailyAmount);
+        } else {
+          console.log('No monthlyKist found in response');
         }
       } catch (error) {
         console.log('Could not fetch monthly summary, using default daily amount');
         window.currentDailyAmount = 200; // Default fallback
+        window.monthlyKist = 6000; // Default fallback
       }
       
     } catch (error) {
@@ -150,16 +200,36 @@ const Collections = () => {
   const getMonthlySummary = () => {
     const today = new Date();
     const daysInMonth = getDaysInMonth(currentMonth);
-    const currentDate = new Date();
-    const daysPassed = Math.min(today.getDate(), daysInMonth);
     
-    // Count paid and unpaid days up to today
+    // Calculate days passed based on current month being viewed
+    let daysPassed;
+    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+      // Current month - count days up to today
+      daysPassed = today.getDate();
+    } else if (currentMonth < new Date(today.getFullYear(), today.getMonth(), 0)) {
+      // Past month - count all days in month
+      daysPassed = daysInMonth;
+    } else {
+      // Future month - no days passed
+      daysPassed = 0;
+    }
+    
+    // Count paid and unpaid days for the entire month
     let paidDays = 0;
     let unpaidDays = 0;
     let totalPaidAmount = 0;
-    let dailyAmount = window.currentDailyAmount || 200; // Use dynamic daily amount
     
-    for (let day = 1; day <= daysPassed; day++) {
+    // Determine how many days to check for paid/unpaid
+    let daysToCheck;
+    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+      // Current month - only check up to today for unpaid days calculation
+      daysToCheck = today.getDate();
+    } else {
+      // Past or future month - check all days
+      daysToCheck = daysInMonth;
+    }
+    
+    for (let day = 1; day <= daysToCheck; day++) {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       const status = getPaymentStatusForDate(date);
       
@@ -171,8 +241,31 @@ const Collections = () => {
       }
     }
     
-    const expectedAmount = daysPassed * dailyAmount;
+    // For current month, also check remaining days for paid status (but not for unpaid)
+    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+      for (let day = today.getDate() + 1; day <= daysInMonth; day++) {
+        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+        const status = getPaymentStatusForDate(date);
+        
+        if (status.paid) {
+          paidDays++;
+          totalPaidAmount += status.paidAmount;
+        }
+        // Don't count unpaid for future days in current month
+      }
+    }
+    
+    // Expected This Month: Get directly from monthly_kist from accounts table
+    const expectedAmount = window.monthlyKist || 0;
+    
+    // Paid This Month: Sum of all paid amounts for the month
+    // Already calculated as totalPaidAmount above
+    
+    // Remaining This Month: Expected - Sum of paid
     const remainingAmount = expectedAmount - totalPaidAmount;
+    
+    // Days Passed This Month: Days of month if current and not completed, else total days
+    const daysPassedThisMonth = daysPassed;
     
     return {
       paidDays,
@@ -180,7 +273,7 @@ const Collections = () => {
       expectedAmount,
       totalPaidAmount,
       remainingAmount,
-      daysPassed
+      daysPassed: daysPassedThisMonth
     };
   };
 
@@ -194,6 +287,13 @@ const Collections = () => {
       }
       return newDate;
     });
+    
+    // Refetch payment status for the new month
+    if (selectedAccount) {
+      setTimeout(() => {
+        fetchPaymentStatus(selectedAccount.accountId);
+      }, 100);
+    }
   };
 
   const renderCalendar = () => {
@@ -268,6 +368,8 @@ const Collections = () => {
       await collectionAPI.create(formData);
       setShowModal(false);
       setFormData({ accountId: '', collectedAmount: '', collectionDate: new Date().toISOString().split('T')[0] });
+      setAccountSearchQuery('');
+      setSelectedAccountDetails(null);
       fetchCollections();
       fetchAccounts();
     } catch (error) {
@@ -407,7 +509,7 @@ const Collections = () => {
                   <td className="table-cell">{collection.customerName}</td>
                   <td className="table-cell">{collection.accountId}</td>
                   <td className="table-cell">{new Date(collection.collectionDate).toLocaleDateString()}</td>
-                  <td className="table-cell font-semibold text-green-600">₹{collection.collectedAmount}</td>
+                  <td className="table-cell font-semibold text-green-600">{formatCurrency(collection.collectedAmount)}</td>
                   <td className="table-cell">{collection.month}</td>
                   <td className="table-cell">{collection.year}</td>
                   <td className="table-cell">
@@ -498,36 +600,91 @@ const Collections = () => {
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Account *
+                  Search Account *
                 </label>
-                <select
-                  required
-                  className="input-field"
-                  value={formData.accountId}
-                  onChange={(e) => setFormData({...formData, accountId: e.target.value})}
-                >
-                  <option value="">Select an account</option>
-                  {accounts.filter(account => account.status === 'ACTIVE').map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.accountNumber} - {account.customerName}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Search by account number or customer name..."
+                      className="input-field pl-10 pr-10"
+                      value={accountSearchQuery}
+                      onChange={(e) => handleAccountSearch(e.target.value)}
+                      onFocus={() => accountSearchQuery.trim().length >= 2 && setShowAccountDropdown(true)}
+                    />
+                    {accountSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={clearAccountSelection}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {showAccountDropdown && searchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {searchResults.map((account) => (
+                        <div
+                          key={account.id}
+                          onClick={() => selectAccount(account)}
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{account.accountNumber}</div>
+                          <div className="text-sm text-gray-600">{account.customerName}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            📱 {account.mobileNumber} | ✉️ {account.email}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {selectedAccountDetails && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Selected Account Details:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium">Account:</span> {selectedAccountDetails.accountNumber}
+                    </div>
+                    <div>
+                      <span className="font-medium">Name:</span> {selectedAccountDetails.customerName}
+                    </div>
+                    <div>
+                      <span className="font-medium">Mobile:</span> {selectedAccountDetails.mobileNumber}
+                    </div>
+                    <div>
+                      <span className="font-medium">Email:</span> {selectedAccountDetails.email}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Collected Amount *
                 </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  step="0.01"
-                  className="input-field"
-                  value={formData.collectedAmount}
-                  onChange={(e) => setFormData({...formData, collectedAmount: e.target.value})}
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-gray-500 z-10">₹</span>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="0.01"
+                    className="input-field pl-8 [appearance:textfield] [&::-webkit-outer-spin-button]:hidden [&::-webkit-inner-spin-button]:hidden"
+                    value={formData.collectedAmount}
+                    onChange={(e) => setFormData({...formData, collectedAmount: e.target.value})}
+                    style={{
+                      MozAppearance: 'textfield',
+                      WebkitAppearance: 'none'
+                    }}
+                  />
+                </div>
               </div>
               
               <div className="mb-6">

@@ -2,6 +2,7 @@ package com.pocas.service;
 
 import com.pocas.request.CollectionAccountRequest;
 import com.pocas.response.CollectionAccountResponse;
+import com.pocas.response.AccountSearchResponse;
 
 import java.util.List;
 
@@ -26,4 +27,9 @@ public interface CollectionAccountService {
      * Update an collectionAccount
      */
     String updateAccount(Long id, CollectionAccountRequest request);
+
+    /**
+     * Search accounts by account number or customer name
+     */
+    List<AccountSearchResponse> searchAccounts(String query);
 }

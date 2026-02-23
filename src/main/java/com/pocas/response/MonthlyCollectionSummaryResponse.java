@@ -19,4 +19,5 @@ public class MonthlyCollectionSummaryResponse {
     private Integer month;
     private Integer year;
     private BigDecimal totalCollected;
+    private BigDecimal monthlyKist;
 }

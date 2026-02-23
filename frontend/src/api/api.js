@@ -24,9 +24,12 @@ api.interceptors.response.use(
 
 // Customer APIs
 export const customerAPI = {
-  getAll: () => api.get('/customers'),
-  getById: (id) => api.get(`/customers/${id}`),
-  create: (data) => api.post('/customers', data),
+  getAll: () => api.get('/customers').then(response => response.data),
+  getAllIncludingClosed: () => api.get('/customers/all').then(response => response.data),
+  getById: (id) => api.get(`/customers/${id}`).then(response => response.data),
+  create: (data) => api.post('/customers', data).then(response => response.data),
+  update: (id, data) => api.put(`/customers/${id}`, data).then(response => response.data),
+  updateCustomerStatus: (id, status) => api.put(`/customers/${id}/status`, null, { params: { status } }).then(response => response.data),
   getTotalCount: () => api.get('/customers/total-count').then(response => response.data),
 };
 
@@ -35,6 +38,7 @@ export const accountAPI = {
   getAll: () => api.get('/accounts').then(response => response.data.data),
   getById: (id) => api.get(`/accounts/${id}`).then(response => response.data.data),
   create: (data) => api.post('/accounts', data).then(response => response.data.data),
+  search: (query) => api.get(`/accounts/search?query=${encodeURIComponent(query)}`).then(response => response.data.data),
 };
 
 // Daily Collection APIs
@@ -52,7 +56,7 @@ export const collectionAPI = {
   getPaymentStatus: (accountId) => 
     api.get(`/daily-collections/collectionAccount/${accountId}/payment-status`).then(response => response.data.data),
   getMonthlyPaymentSummary: (accountId, month, year) => 
-    api.get(`/daily-collections/collectionAccount/${accountId}/monthly-payment-summary?month=${month}&year=${year}`).then(response => response.data.data),
+    api.get(`/daily-collections/collectionAccount/${accountId}/month-summary?month=${month}&year=${year}`).then(response => response.data.data),
 };
 
 export default api;
