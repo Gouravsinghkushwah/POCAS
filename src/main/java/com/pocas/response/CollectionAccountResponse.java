@@ -15,6 +15,7 @@ public class CollectionAccountResponse {
 
     private Long id;
     private String accountNumber;
+    private String customerName;
     private Long customerId;
     private AccountType accountType;
     private BigDecimal monthlyKist;

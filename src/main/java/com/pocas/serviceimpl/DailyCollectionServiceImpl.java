@@ -152,9 +152,12 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
 
             return MonthlyCollectionSummaryResponse.builder()
                     .accountId(collectionAccount.getId())
+                    .customerId(collectionAccount.getCustomer().getId())
+                    .customerName(collectionAccount.getCustomer().getName())
                     .month(month)
                     .year(year)
                     .totalCollected(totalCollected)
+                    .monthlyKist(collectionAccount.getMonthlyKist())
                     .build();
 
         } catch (ApiException e) {

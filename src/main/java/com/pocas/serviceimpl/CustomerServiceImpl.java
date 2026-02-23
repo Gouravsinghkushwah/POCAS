@@ -64,7 +64,7 @@ public class CustomerServiceImpl implements CustomerService {
     public List<CustomerResponse> getAllCustomers() {
         try {
             return customerRepository.findAll().stream()
-                    .filter(customer -> customer.getStatus() != CustomerStatus.CLOSED)
+                    .filter(customer -> !customer.getStatus().equals(CustomerStatus.CLOSED))
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -76,7 +76,7 @@ public class CustomerServiceImpl implements CustomerService {
     public List<CustomerResponse> getAllClosedCustomer(){
         try{
             return customerRepository.findAll().stream()
-                    .filter(customer -> customer.getStatus()==CustomerStatus.CLOSED)
+                    .filter(customer -> customer.getStatus().equals(CustomerStatus.CLOSED))
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
         }catch(Exception e){
@@ -135,7 +135,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
             
             // Check if customer already has the same status
-            if (customer.getStatus() == status) {
+            if (customer.getStatus().equals(status)) {
                 // Return current customer without error
                 return mapToResponse(customer);
             }
@@ -178,7 +178,7 @@ public class CustomerServiceImpl implements CustomerService {
     private void checkMobileNumberExists(String mobileNumber) {
         customerRepository.findByMobileNumber(mobileNumber)
                 .ifPresent(c -> {
-                    if (c.getStatus() != CustomerStatus.CLOSED) {
+                    if (!c.getStatus().equals(CustomerStatus.CLOSED)) {
                         throw new ApiException(
                                 String.format(ApiMessages.CUSTOMER_MOBILE_EXISTS, mobileNumber));
                     }
@@ -191,7 +191,7 @@ public class CustomerServiceImpl implements CustomerService {
     private void checkEmailExists(String email) {
         customerRepository.findByEmail(email)
                 .ifPresent(c -> {
-                    if (c.getStatus() != CustomerStatus.CLOSED) {
+                    if (!c.getStatus().equals(CustomerStatus.CLOSED)) {
                         throw new ApiException(
                                 String.format(ApiMessages.CUSTOMER_EMAIL_EXISTS, email));
                     }
@@ -202,7 +202,7 @@ public class CustomerServiceImpl implements CustomerService {
      * Check if customer is active (not CLOSED)
      */
     private void ensureCustomerActive(Customer customer) {
-        if (customer.getStatus() == CustomerStatus.CLOSED) {
+        if (customer.getStatus().equals(CustomerStatus.CLOSED)) {
             throw new ApiException(ApiMessages.CUSTOMER_DEACTIVATED);
         }
     }

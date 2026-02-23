@@ -50,7 +50,7 @@ public class CustomerController {
     }
 
     // Update customer status
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     public ResponseEntity<CustomerResponse> updateCustomerStatus(@PathVariable Long id, @RequestParam CustomerStatus status) {
         CustomerResponse response = customerService.updateCustomerStatus(id, status);
         return ResponseEntity.ok(response);

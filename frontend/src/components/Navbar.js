@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, CreditCard, DollarSign } from 'lucide-react';
+import { Home, Users, CreditCard, IndianRupee } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
@@ -13,7 +13,7 @@ const Navbar = () => {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/customers', label: 'Customers', icon: Users },
     { path: '/accounts', label: 'Accounts', icon: CreditCard },
-    { path: '/collections', label: 'Collections', icon: DollarSign },
+    { path: '/collections', label: 'Collections', icon: IndianRupee },
   ];
 
   return (

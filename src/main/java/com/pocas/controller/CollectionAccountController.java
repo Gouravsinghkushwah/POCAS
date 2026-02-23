@@ -2,6 +2,7 @@ package com.pocas.controller;
 
 import com.pocas.request.CollectionAccountRequest;
 import com.pocas.response.CollectionAccountResponse;
+import com.pocas.response.AccountSearchResponse;
 import com.pocas.response.ApiResponseDto;
 import com.pocas.service.CollectionAccountService;
 import jakarta.validation.Valid;
@@ -37,6 +38,19 @@ public class CollectionAccountController {
         List<CollectionAccountResponse> accounts = collectionAccountService.getAllAccounts();
         ApiResponseDto<List<CollectionAccountResponse>> apiResponse = ApiResponseDto.<List<CollectionAccountResponse>>builder()
                 .message("Accounts fetched successfully")
+                .data(accounts)
+                .status(200)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponseDto<List<AccountSearchResponse>>> searchAccounts(
+            @RequestParam String query) {
+        List<AccountSearchResponse> accounts = collectionAccountService.searchAccounts(query);
+        ApiResponseDto<List<AccountSearchResponse>> apiResponse = ApiResponseDto.<List<AccountSearchResponse>>builder()
+                .message("Accounts searched successfully")
                 .data(accounts)
                 .status(200)
                 .timestamp(LocalDateTime.now())

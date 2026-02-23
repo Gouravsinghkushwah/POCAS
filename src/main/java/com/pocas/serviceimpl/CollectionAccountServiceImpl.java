@@ -11,6 +11,7 @@ import com.pocas.repo.AccountRepository;
 import com.pocas.repo.CustomerRepository;
 import com.pocas.request.CollectionAccountRequest;
 import com.pocas.response.CollectionAccountResponse;
+import com.pocas.response.AccountSearchResponse;
 import com.pocas.service.CollectionAccountService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -162,6 +163,7 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
         return CollectionAccountResponse.builder()
                 .id(collectionAccount.getId())
                 .accountNumber(collectionAccount.getAccountNumber())
+                .customerName(collectionAccount.getCustomer().getName())
                 .customerId(collectionAccount.getCustomer().getId())
                 .accountType(collectionAccount.getAccountType())
                 .monthlyKist(collectionAccount.getMonthlyKist())
@@ -193,5 +195,46 @@ public class CollectionAccountServiceImpl implements CollectionAccountService {
     public Customer getCustomerById(Long id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> new ApiException(String.format(ApiMessages.CUSTOMER_NOT_FOUND, id)));
+    }
+
+    /**
+     * Search accounts by account number or customer name
+     */
+    @Override
+    public List<AccountSearchResponse> searchAccounts(String query) {
+        try {
+            String searchQuery = query.toLowerCase().trim();
+            
+            return accountRepository.findAll().stream()
+                    .filter(account -> account.getCustomer().getStatus() != CustomerStatus.CLOSED)
+                    .filter(account -> 
+                        account.getAccountNumber().toLowerCase().contains(searchQuery) ||
+                        account.getCustomer().getName().toLowerCase().contains(searchQuery)
+                    )
+                    .map(this::mapToSearchResponse)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new ApiException(ApiMessages.FAILED_TO_FETCH_COLLECTION_ACCOUNTS);
+        }
+    }
+
+    /**
+     * Helper method to map Entity → Search Response DTO
+     */
+    private AccountSearchResponse mapToSearchResponse(CollectionAccount collectionAccount) {
+        if (collectionAccount == null) return null;
+        Customer customer = collectionAccount.getCustomer();
+        return AccountSearchResponse.builder()
+                .id(collectionAccount.getId())
+                .accountNumber(collectionAccount.getAccountNumber())
+                .customerName(customer.getName())
+                .mobileNumber(customer.getMobileNumber())
+                .email(customer.getEmail())
+                .accountType(collectionAccount.getAccountType())
+                .monthlyKist(collectionAccount.getMonthlyKist())
+                .startDate(collectionAccount.getStartDate())
+                .endDate(collectionAccount.getEndDate())
+                .status(collectionAccount.getStatus())
+                .build();
     }
 }
