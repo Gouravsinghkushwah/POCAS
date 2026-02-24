@@ -250,7 +250,7 @@ public class DailyCollectionServiceImpl implements DailyCollectionService {
             }
 
             // Check customer status
-            Customer customer = collectionAccounts.getFirst().getCustomer();
+            Customer customer = collectionAccounts.get(0).getCustomer();
             if (customer.getStatus() == CustomerStatus.CLOSED) {
                 throw new ApiException(String.format(ApiMessages.CUSTOMER_DEACTIVATED_WITH_STATUS, "view collections", customer.getStatus()));
             }
