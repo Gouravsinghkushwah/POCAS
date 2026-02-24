@@ -1,5 +1,5 @@
 [build]
-builder = "NIXPACKS"
+builder = "nixpacks"
 
 [phases.setup]
 nixPkgs = ["nodejs-18_x", "jdk17"]
@@ -8,6 +8,7 @@ nixPkgs = ["nodejs-18_x", "jdk17"]
 cmds = [
   "cd frontend && npm install && npm run build && cd ..",
   "./mvnw clean package -DskipTests",
+  "mkdir -p target/classes",
   "cp -r frontend/build target/classes/static"
 ]
 
