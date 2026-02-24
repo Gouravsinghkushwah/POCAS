@@ -8,8 +8,8 @@ nixPkgs = ["nodejs-18_x", "jdk17"]
 cmds = [
   "cd frontend && npm install && npm run build && cd ..",
   "./mvnw clean package -DskipTests",
-  "mkdir -p target/classes",
-  "cp -r frontend/build target/classes/static"
+  "mkdir -p src/main/resources/static",
+  "cp -r frontend/build/* src/main/resources/static/"
 ]
 
 [start]
