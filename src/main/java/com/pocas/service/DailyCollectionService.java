@@ -52,4 +52,14 @@ public interface DailyCollectionService {
      * Get all collections with pagination and search
      */
     Page<DailyCollectionFullResponse> getAllCollectionsPaginated(int page, int size, String search);
+
+    /**
+     * Get latest collection per account (one per customer)
+     */
+    List<DailyCollectionFullResponse> getLatestCollectionPerAccount();
+
+    /**
+     * Get all transactions for an account (full history)
+     */
+    List<DailyCollectionFullResponse> getAllTransactionsByAccountId(Long accountId);
 }

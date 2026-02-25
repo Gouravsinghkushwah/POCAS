@@ -46,6 +46,8 @@ export const collectionAPI = {
   getAll: () => api.get('/daily-collections/all').then(response => response.data.data),
   getAllPaginated: (page, size, search) => 
     api.get(`/daily-collections/paginated?page=${page - 1}&size=${size}&search=${encodeURIComponent(search || '')}`).then(response => response.data),
+  getLatestPerAccount: () => api.get('/daily-collections/latest-per-account').then(response => response.data.data),
+  getTransactionsByAccount: (accountId) => api.get(`/daily-collections/collectionAccount/${accountId}/transactions`).then(response => response.data.data),
   getByAccount: (accountId) => api.get(`/daily-collections/account/${accountId}`).then(response => response.data.data),
   getByCustomer: (customerId) => api.get(`/daily-collections/customer/${customerId}`).then(response => response.data.data),
   create: (data) => api.post('/daily-collections', data).then(response => response.data.data),

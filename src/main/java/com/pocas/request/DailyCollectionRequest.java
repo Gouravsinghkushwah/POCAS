@@ -25,4 +25,6 @@ public class DailyCollectionRequest {
     @NotNull(message = "Collected amount is required")
     @DecimalMin(value = "1.0", message = "Collected amount must be greater than 0")
     private BigDecimal collectedAmount;
+
+    private String description;
 }

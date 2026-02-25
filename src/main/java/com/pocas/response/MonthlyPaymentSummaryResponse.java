@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -22,4 +23,24 @@ public class MonthlyPaymentSummaryResponse {
     private BigDecimal expectedAmount;
     private BigDecimal totalPaidAmount;
     private BigDecimal remainingAmount;
+    
+    // Advance payment fields
+    private BigDecimal advanceFromPreviousMonths;
+    private BigDecimal currentMonthAdvance;
+    private BigDecimal remainingAdvance;
+    private BigDecimal adjustedExpectedAmount;
+    private Integer monthsCoveredByAdvance;
+    private List<AdvancePaymentDetail> advanceDetails;
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class AdvancePaymentDetail {
+        private Integer originalMonth;
+        private Integer originalYear;
+        private BigDecimal advanceAmount;
+        private BigDecimal remainingAdvance;
+        private BigDecimal appliedThisMonth;
+    }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collectionAPI, accountAPI } from '../api/api';
-import { Plus, Eye, Search, Calendar, TrendingUp, X, CheckCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Eye, Search, Calendar, TrendingUp, X, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 
 const Collections = () => {
   const [collections, setCollections] = useState([]);
@@ -32,6 +32,11 @@ const Collections = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [selectedAccountDetails, setSelectedAccountDetails] = useState(null);
+  const [advancePayments, setAdvancePayments] = useState({});
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [selectedTransactionAccount, setSelectedTransactionAccount] = useState(null);
 
   useEffect(() => {
     fetchCollections();
@@ -115,9 +120,33 @@ const Collections = () => {
     setShowAccountDropdown(false);
   };
 
+  const fetchTransactions = async (accountId) => {
+    try {
+      setTransactionsLoading(true);
+      const data = await collectionAPI.getTransactionsByAccount(accountId);
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactions([]);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   const fetchPaymentStatus = async (accountId) => {
     try {
       setPaymentStatusLoading(true);
+      
+      // First fetch account details to get start date
+      const accountDetails = await accountAPI.getById(accountId);
+      console.log('Account details:', accountDetails);
+      
+      // Set selected account with start date
+      setSelectedAccount(prev => ({
+        ...prev,
+        startDate: accountDetails.startDate
+      }));
+      
       const response = await collectionAPI.getPaymentStatus(accountId);
       console.log('Full API response:', response); // Debug log
       
@@ -147,14 +176,82 @@ const Collections = () => {
           // Store it for use in calendar
           window.currentDailyAmount = dailyAmount;
           window.monthlyKist = monthlySummary.monthlyKist;
+          // Store advance payment data
+          window.advanceData = {
+            advanceFromPreviousMonths: monthlySummary.advanceFromPreviousMonths || 0,
+            currentMonthAdvance: monthlySummary.currentMonthAdvance || 0,
+            adjustedExpectedAmount: monthlySummary.adjustedExpectedAmount || monthlySummary.monthlyKist,
+            remainingAmount: monthlySummary.remainingAmount || 0,
+            monthsCoveredByAdvance: monthlySummary.monthsCoveredByAdvance || 0,
+            advanceDetails: monthlySummary.advanceDetails || []
+          };
           console.log('Set monthlyKist:', monthlySummary.monthlyKist, 'Daily amount:', dailyAmount);
+          console.log('Advance data:', window.advanceData);
+          console.log('Expected amount:', window.advanceData.adjustedExpectedAmount);
+          console.log('Remaining amount:', window.advanceData.remainingAmount);
         } else {
           console.log('No monthlyKist found in response');
         }
+        
+        // Fetch previous month's advance payment (keeping for backward compatibility)
+        const prevMonth = month === 1 ? 12 : month - 1;
+        const prevYear = month === 1 ? year - 1 : year;
+        
+        try {
+          const prevMonthSummary = await collectionAPI.getMonthlyPaymentSummary(accountId, prevMonth, prevYear);
+          if (prevMonthSummary) {
+            // Calculate advance from previous month
+            const prevMonthDaysInMonth = new Date(prevYear, prevMonth, 0).getDate();
+            const prevMonthExpected = prevMonthSummary.monthlyKist || 0;
+            
+            // Get payment status for previous month to calculate advance
+            const prevMonthPaymentResponse = await collectionAPI.getPaymentStatus(accountId);
+            let prevMonthPaymentData = prevMonthPaymentResponse;
+            if (prevMonthPaymentResponse.data && Array.isArray(prevMonthPaymentResponse.data)) {
+              prevMonthPaymentData = prevMonthPaymentResponse.data;
+            } else if (prevMonthPaymentResponse.data && prevMonthPaymentResponse.data.data && Array.isArray(prevMonthPaymentResponse.data.data)) {
+              prevMonthPaymentData = prevMonthPaymentResponse.data.data;
+            }
+            
+            let prevMonthTotalPaid = 0;
+            if (Array.isArray(prevMonthPaymentData)) {
+              prevMonthPaymentData.forEach(payment => {
+                const paymentDate = new Date(payment.date);
+                if (paymentDate.getMonth() + 1 === prevMonth && paymentDate.getFullYear() === prevYear) {
+                  prevMonthTotalPaid += payment.paidAmount || 0;
+                }
+              });
+            }
+            
+            const prevMonthAdvance = prevMonthTotalPaid > prevMonthExpected ? prevMonthTotalPaid - prevMonthExpected : 0;
+            
+            setAdvancePayments(prev => ({
+              ...prev,
+              [`${accountId}-${year}-${month}`]: prevMonthAdvance
+            }));
+            
+            console.log('Previous month advance:', prevMonthAdvance);
+          }
+        } catch (error) {
+          console.log('Could not fetch previous month advance:', error);
+          setAdvancePayments(prev => ({
+            ...prev,
+            [`${accountId}-${year}-${month}`]: 0
+          }));
+        }
+        
       } catch (error) {
         console.log('Could not fetch monthly summary, using default daily amount');
         window.currentDailyAmount = 200; // Default fallback
         window.monthlyKist = 6000; // Default fallback
+        window.advanceData = {
+          advanceFromPreviousMonths: 0,
+          currentMonthAdvance: 0,
+          adjustedExpectedAmount: 6000,
+          remainingAmount: 6000,
+          monthsCoveredByAdvance: 0,
+          advanceDetails: []
+        };
       }
       
     } catch (error) {
@@ -169,6 +266,12 @@ const Collections = () => {
     setSelectedAccount(collection);
     setShowPaymentStatusModal(true);
     fetchPaymentStatus(collection.accountId);
+  };
+
+  const handleViewTransactions = (collection) => {
+    setSelectedTransactionAccount(collection);
+    setShowTransactionsModal(true);
+    fetchTransactions(collection.accountId);
   };
 
   // Calendar helper functions
@@ -193,79 +296,113 @@ const Collections = () => {
     
     const status = paymentStatus.find(s => s.date === dateStr);
     console.log('Looking for date:', dateStr, 'Status found:', status); // Debug log
-    return status || { paid: false, paidAmount: 0 };
+    
+    // Check if this date is before the account start date
+    if (selectedAccount && selectedAccount.startDate) {
+      const accountStartDate = new Date(selectedAccount.startDate);
+      console.log('Account start date:', accountStartDate, 'Current date:', date, 'Is before:', date < accountStartDate);
+      if (date < accountStartDate) {
+        // Return empty status for dates before start date
+        return { paid: false, paidAmount: 0, isBeforeStartDate: true };
+      }
+    }
+    
+    return status || { paid: false, paidAmount: 0, isBeforeStartDate: false };
   };
 
   // Calculate monthly summary
   const getMonthlySummary = () => {
     const today = new Date();
     const daysInMonth = getDaysInMonth(currentMonth);
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), daysInMonth);
     
-    // Calculate days passed based on current month being viewed
-    let daysPassed;
-    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
-      // Current month - count days up to today
-      daysPassed = today.getDate();
-    } else if (currentMonth < new Date(today.getFullYear(), today.getMonth(), 0)) {
-      // Past month - count all days in month
-      daysPassed = daysInMonth;
-    } else {
-      // Future month - no days passed
-      daysPassed = 0;
+    // Get account start date
+    let accountStartDate = null;
+    if (selectedAccount && selectedAccount.startDate) {
+      accountStartDate = new Date(selectedAccount.startDate);
     }
     
-    // Count paid and unpaid days for the entire month
+    // Calculate effective start date for this month (max of month start and account start)
+    let effectiveStartDate = monthStart;
+    if (accountStartDate && accountStartDate > monthStart) {
+      effectiveStartDate = accountStartDate;
+    }
+    
+    // Calculate effective end date (min of today and month end)
+    let effectiveEndDate = monthEnd;
+    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+      effectiveEndDate = today;
+    }
+    
+    // Count paid and unpaid days only in the effective date range
     let paidDays = 0;
     let unpaidDays = 0;
     let totalPaidAmount = 0;
+    let daysPassed = 0;
     
-    // Determine how many days to check for paid/unpaid
-    let daysToCheck;
-    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
-      // Current month - only check up to today for unpaid days calculation
-      daysToCheck = today.getDate();
-    } else {
-      // Past or future month - check all days
-      daysToCheck = daysInMonth;
-    }
-    
-    for (let day = 1; day <= daysToCheck; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      const status = getPaymentStatusForDate(date);
+    // Loop through all days in the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       
-      if (status.paid) {
-        paidDays++;
-        totalPaidAmount += status.paidAmount;
-      } else {
-        unpaidDays++;
-      }
-    }
-    
-    // For current month, also check remaining days for paid status (but not for unpaid)
-    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
-      for (let day = today.getDate() + 1; day <= daysInMonth; day++) {
-        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-        const status = getPaymentStatusForDate(date);
+      // Check if date is within effective range
+      if (currentDate >= effectiveStartDate && currentDate <= effectiveEndDate) {
+        const status = getPaymentStatusForDate(currentDate);
         
         if (status.paid) {
           paidDays++;
           totalPaidAmount += status.paidAmount;
+        } else if (!status.isBeforeStartDate) {
+          // Only count as unpaid if it's not before start date
+          unpaidDays++;
         }
-        // Don't count unpaid for future days in current month
+        
+        daysPassed++;
       }
     }
     
-    // Expected This Month: Get directly from monthly_kist from accounts table
-    const expectedAmount = window.monthlyKist || 0;
+    // Also check for paid days after today but within month (advance payments)
+    if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+      for (let day = today.getDate() + 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+        
+        // Only check if within effective start date
+        if (currentDate >= effectiveStartDate) {
+          const status = getPaymentStatusForDate(currentDate);
+          
+          if (status.paid) {
+            paidDays++;
+            totalPaidAmount += status.paidAmount;
+          }
+        }
+      }
+    }
     
-    // Paid This Month: Sum of all paid amounts for the month
-    // Already calculated as totalPaidAmount above
+    // Expected This Month: Calculate based on effective days passed
+    const baseExpectedAmount = window.monthlyKist || 0;
+    const advanceData = window.advanceData || {};
     
-    // Remaining This Month: Expected - Sum of paid
-    const remainingAmount = expectedAmount - totalPaidAmount;
+    // Get advance payment from previous month
+    const month = currentMonth.getMonth() + 1;
+    const year = currentMonth.getFullYear();
+    const advanceFromPrevMonth = advancePayments[`${selectedAccount?.accountId}-${year}-${month}`] || 0;
     
-    // Days Passed This Month: Days of month if current and not completed, else total days
-    const daysPassedThisMonth = daysPassed;
+    // Use backend advance data if available
+    const advanceFromPreviousMonths = advanceData.advanceFromPreviousMonths || advanceFromPrevMonth;
+    
+    // Calculate daily amount
+    const dailyAmount = baseExpectedAmount / daysInMonth;
+    
+    // Calculate expected amount: (Daily amount * Days passed) - Advance from previous months
+    const rawExpectedAmount = dailyAmount * daysPassed;
+    const expectedAmount = Math.max(0, rawExpectedAmount - advanceFromPreviousMonths);
+    
+    // Remaining This Month
+    const remainingAmount = Math.max(0, expectedAmount - totalPaidAmount);
+    
+    // Advance Payment in this month
+    const advancePayment = advanceData.currentMonthAdvance || 
+                         ((totalPaidAmount - expectedAmount < 0) ? 0 : (totalPaidAmount - expectedAmount));
     
     return {
       paidDays,
@@ -273,7 +410,11 @@ const Collections = () => {
       expectedAmount,
       totalPaidAmount,
       remainingAmount,
-      daysPassed: daysPassedThisMonth
+      advancePayment,
+      advanceFromPreviousMonths,
+      monthsCoveredByAdvance: advanceData.monthsCoveredByAdvance || 0,
+      advanceDetails: advanceData.advanceDetails || [],
+      daysPassed
     };
   };
 
@@ -312,21 +453,24 @@ const Collections = () => {
       const paymentInfo = getPaymentStatusForDate(currentDate);
       const isToday = currentDate.toDateString() === new Date().toDateString();
       
+      // Determine if the date should be shown as blank (before start date or after today)
+      const isBlank = paymentInfo.isBeforeStartDate || currentDate > new Date();
+      
       days.push(
         <div
           key={day}
           className={`p-2 border-2 min-h-[80px] ${
-            currentDate <= new Date() 
-              ? paymentInfo.paid 
+            isBlank
+              ? 'bg-white border-gray-200 text-gray-400'
+              : paymentInfo.paid
                 ? paidColor
                 : unpaidColor
-              : 'bg-white border-gray-200 text-gray-800'
           } ${
             isToday ? 'ring-4 ring-blue-500 ring-opacity-50' : ''
           }`}
         >
           <div className="text-xs font-bold mb-1">{day}</div>
-          {currentDate <= new Date() ? (
+          {!isBlank && (
             paymentInfo.paid ? (
               <div className="text-xs">
                 <div className="flex items-center mb-1">
@@ -348,10 +492,11 @@ const Collections = () => {
                 </div>
               </div>
             )
-          ) : (
+          )}
+          {isBlank && (
             <div className="text-xs text-gray-400">
               <div className="text-center mt-3">
-                {/* Empty for future dates */}
+                {/* Empty for dates before start date or after today */}
               </div>
             </div>
           )}
@@ -364,6 +509,17 @@ const Collections = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate collection date is not in the future
+    const collectionDate = new Date(formData.collectionDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (collectionDate > today) {
+      alert('Cannot add collection for future dates. Please select today or a past date.');
+      return;
+    }
+    
     try {
       await collectionAPI.create(formData);
       setShowModal(false);
@@ -513,13 +669,22 @@ const Collections = () => {
                   <td className="table-cell">{collection.month}</td>
                   <td className="table-cell">{collection.year}</td>
                   <td className="table-cell">
-                    <button 
-                      onClick={() => handleViewPaymentStatus(collection)}
-                      className="btn btn-secondary p-2"
-                      title="View Payment Status"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleViewPaymentStatus(collection)}
+                        className="btn btn-secondary p-2"
+                        title="View Payment Status"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleViewTransactions(collection)}
+                        className="btn btn-secondary p-2"
+                        title="View All Transactions"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -694,6 +859,7 @@ const Collections = () => {
                 <input
                   type="date"
                   required
+                  max={new Date().toISOString().split('T')[0]}
                   className="input-field"
                   value={formData.collectionDate}
                   onChange={(e) => setFormData({...formData, collectionDate: e.target.value})}
@@ -788,6 +954,41 @@ const Collections = () => {
 
                 {/* Summary */}
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  {/* Conditional heading for advance payment from previous month */}
+                  {getMonthlySummary().advanceFromPreviousMonths > 0 && (
+                    <div className="mb-3 p-2 bg-green-100 border border-green-300 rounded-md">
+                      <p className="text-sm font-medium text-green-800">
+                        Your previous advanced amount of {formatCurrency(getMonthlySummary().advanceFromPreviousMonths)} added to this month
+                        {getMonthlySummary().monthsCoveredByAdvance > 0 && (
+                          <span className="block text-xs mt-1">
+                            Covers {getMonthlySummary().monthsCoveredByAdvance} month{getMonthlySummary().monthsCoveredByAdvance > 1 ? 's' : ''} of payments
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Conditional heading for no advance payment */}
+                  {getMonthlySummary().advanceFromPreviousMonths === 0 && (
+                    <div className="mb-3 p-2 bg-gray-100 border border-gray-300 rounded-md">
+                      <p className="text-sm font-medium text-gray-600">
+                        You did not pay any advance amount
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Advance details */}
+                  {getMonthlySummary().advanceDetails && getMonthlySummary().advanceDetails.length > 0 && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm font-medium text-blue-800 mb-2">Advance Payment Details:</p>
+                      {getMonthlySummary().advanceDetails.map((detail, index) => (
+                        <div key={index} className="text-xs text-blue-700 mb-1">
+                          • {detail.originalMonth}/{detail.originalYear}: {formatCurrency(detail.appliedThisMonth)} applied (remaining: {formatCurrency(detail.remainingAdvance)})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-medium">Total Paid Days:</span>{' '}
@@ -806,6 +1007,11 @@ const Collections = () => {
                       <span className="text-blue-600 font-semibold">
                         {formatCurrency(getMonthlySummary().expectedAmount)}
                       </span>
+                      {getMonthlySummary().advanceFromPreviousMonths > 0 && (
+                        <div className="text-xs text-gray-500">
+                          (Base: {formatCurrency(window.monthlyKist || 0)} - Advance: {formatCurrency(getMonthlySummary().advanceFromPreviousMonths)})
+                        </div>
+                      )}
                     </div>
                     <div>
                       <span className="font-medium">Paid This Month:</span>{' '}
@@ -825,6 +1031,36 @@ const Collections = () => {
                         {getMonthlySummary().daysPassed}
                       </span>
                     </div>
+                    <div>
+                    <span className="font-medium">Advance Payment in this month:</span>{' '}
+                    <span className="text-gray-600 font-semibold">
+                    {formatCurrency(getMonthlySummary().advancePayment)}
+                     </span>
+                     </div>
+                    <div>
+                      <span className="font-medium">Months Covered:</span>{' '}
+                      <span className="text-purple-600 font-semibold">
+                        {getMonthlySummary().monthsCoveredByAdvance}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Customer Satisfaction Button */}
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      onClick={() => {
+                        const satisfaction = getMonthlySummary().remainingAmount <= 0 ? 'excellent' : 
+                                          getMonthlySummary().remainingAmount <= 1000 ? 'good' : 'needs_attention';
+                        const message = getMonthlySummary().monthsCoveredByAdvance > 0 
+                          ? `Customer Satisfaction: ${satisfaction.toUpperCase()}\n\nPayment Status: ${getMonthlySummary().remainingAmount <= 0 ? 'All dues cleared!' : 'Pending payments exist'}\n\n🎉 ${getMonthlySummary().monthsCoveredByAdvance} month${getMonthlySummary().monthsCoveredByAdvance > 1 ? 's' : ''} covered by advance payments!`
+                          : `Customer Satisfaction: ${satisfaction.toUpperCase()}\n\nPayment Status: ${getMonthlySummary().remainingAmount <= 0 ? 'All dues cleared!' : 'Pending payments exist'}`;
+                        alert(message);
+                      }}
+                      className="btn btn-primary flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Check Customer Satisfaction
+                    </button>
                   </div>
                 </div>
               </div>
@@ -833,6 +1069,86 @@ const Collections = () => {
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowPaymentStatusModal(false)}
+                className="btn btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transactions Modal */}
+      {showTransactionsModal && selectedTransactionAccount && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                All Transactions - {selectedTransactionAccount.customerName}
+              </h2>
+              <button
+                onClick={() => setShowTransactionsModal(false)}
+                className="btn btn-secondary p-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Account ID:</span> {selectedTransactionAccount.accountId}
+                </div>
+                <div>
+                  <span className="font-medium">Customer:</span> {selectedTransactionAccount.customerName}
+                </div>
+                <div>
+                  <span className="font-medium">Total Transactions:</span> {transactions.length}
+                </div>
+              </div>
+            </div>
+
+            {transactionsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading transactions...</p>
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No transactions found for this account
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table w-full">
+                  <thead className="table-header">
+                    <tr>
+                      <th className="table-header-cell">#</th>
+                      <th className="table-header-cell">Collection ID</th>
+                      <th className="table-header-cell">Date</th>
+                      <th className="table-header-cell">Amount</th>
+                      <th className="table-header-cell">Month</th>
+                      <th className="table-header-cell">Year</th>
+                    </tr>
+                  </thead>
+                  <tbody className="table-body">
+                    {transactions.map((transaction, index) => (
+                      <tr key={transaction.collectionId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="table-cell">{index + 1}</td>
+                        <td className="table-cell font-medium">#{transaction.collectionId}</td>
+                        <td className="table-cell">{new Date(transaction.collectionDate).toLocaleDateString()}</td>
+                        <td className="table-cell font-semibold text-green-600">{formatCurrency(transaction.collectedAmount)}</td>
+                        <td className="table-cell">{transaction.month}</td>
+                        <td className="table-cell">{transaction.year}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowTransactionsModal(false)}
                 className="btn btn-primary"
               >
                 Close

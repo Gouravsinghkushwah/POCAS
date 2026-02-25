@@ -149,4 +149,37 @@ public class DailyCollectionController {
         return ResponseEntity.ok(collectionsPage);
     }
 
+    @GetMapping("/latest-per-account")
+    public ResponseEntity<ApiResponseDto<List<DailyCollectionFullResponse>>> getLatestCollectionPerAccount() {
+        List<DailyCollectionFullResponse> collections = dailyCollectionService.getLatestCollectionPerAccount();
+
+        ApiResponseDto<List<DailyCollectionFullResponse>> apiResponse =
+                ApiResponseDto.<List<DailyCollectionFullResponse>>builder()
+                        .message("Latest collection per account fetched successfully")
+                        .data(collections)
+                        .status(200)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @GetMapping("/collectionAccount/{accountId}/transactions")
+    public ResponseEntity<ApiResponseDto<List<DailyCollectionFullResponse>>> getAllTransactionsByAccountId(
+            @PathVariable Long accountId) {
+
+        List<DailyCollectionFullResponse> collections =
+                dailyCollectionService.getAllTransactionsByAccountId(accountId);
+
+        ApiResponseDto<List<DailyCollectionFullResponse>> apiResponse =
+                ApiResponseDto.<List<DailyCollectionFullResponse>>builder()
+                        .message("All transactions fetched successfully for account ID " + accountId)
+                        .data(collections)
+                        .status(200)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
 }
